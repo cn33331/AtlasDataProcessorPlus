@@ -10,10 +10,21 @@
 		AFA138E82F2BA886006538C2 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA138E72F2BA886006538C2 /* AppDelegate.swift */; };
 		AFA138EA2F2BA886006538C2 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA138E92F2BA886006538C2 /* ViewController.swift */; };
 		AFA138EC2F2BA888006538C2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AFA138EB2F2BA888006538C2 /* Assets.xcassets */; };
-		AFA138EF2F2BA888006538C2 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AFA138ED2F2BA888006538C2 /* Main.storyboard */; };
 		AFA138FA2F2BA889006538C2 /* AtlasDataProcessorPlusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA138F92F2BA889006538C2 /* AtlasDataProcessorPlusTests.swift */; };
 		AFA139042F2BA889006538C2 /* AtlasDataProcessorPlusUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA139032F2BA889006538C2 /* AtlasDataProcessorPlusUITests.swift */; };
 		AFA139062F2BA889006538C2 /* AtlasDataProcessorPlusUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA139052F2BA889006538C2 /* AtlasDataProcessorPlusUITestsLaunchTests.swift */; };
+		AFA1395F2F2BAF75006538C2 /* TestData.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA1395D2F2BAF75006538C2 /* TestData.swift */; };
+		AFA139602F2BAF75006538C2 /* TestData.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA1395D2F2BAF75006538C2 /* TestData.swift */; };
+		AFA139612F2BAF75006538C2 /* TestData.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA1395D2F2BAF75006538C2 /* TestData.swift */; };
+		AFA139622F2BAF75006538C2 /* Channel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA1395E2F2BAF75006538C2 /* Channel.swift */; };
+		AFA139632F2BAF75006538C2 /* Channel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA1395E2F2BAF75006538C2 /* Channel.swift */; };
+		AFA139642F2BAF75006538C2 /* Channel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA1395E2F2BAF75006538C2 /* Channel.swift */; };
+		AFA139692F2BAF9C006538C2 /* MainWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA139662F2BAF9C006538C2 /* MainWindowController.swift */; };
+		AFA1396C2F2BAF9C006538C2 /* ChannelViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA139672F2BAF9C006538C2 /* ChannelViewController.swift */; };
+		AFA1396F2F2BAF9C006538C2 /* SummaryViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA139682F2BAF9C006538C2 /* SummaryViewController.swift */; };
+		AFA139742F2BAFB7006538C2 /* DataReaderService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA139732F2BAFB7006538C2 /* DataReaderService.swift */; };
+		AFA139802F2BB17E006538C2 /* NSVStackLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA1397F2F2BB17E006538C2 /* NSVStackLayout.swift */; };
+		AFA1398E2F2BC581006538C2 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA1398D2F2BC581006538C2 /* main.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -38,13 +49,21 @@
 		AFA138E72F2BA886006538C2 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		AFA138E92F2BA886006538C2 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
 		AFA138EB2F2BA888006538C2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		AFA138EE2F2BA888006538C2 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		AFA138F02F2BA888006538C2 /* AtlasDataProcessorPlus.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AtlasDataProcessorPlus.entitlements; sourceTree = "<group>"; };
 		AFA138F52F2BA889006538C2 /* AtlasDataProcessorPlusTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AtlasDataProcessorPlusTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AFA138F92F2BA889006538C2 /* AtlasDataProcessorPlusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AtlasDataProcessorPlusTests.swift; sourceTree = "<group>"; };
 		AFA138FF2F2BA889006538C2 /* AtlasDataProcessorPlusUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AtlasDataProcessorPlusUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AFA139032F2BA889006538C2 /* AtlasDataProcessorPlusUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AtlasDataProcessorPlusUITests.swift; sourceTree = "<group>"; };
 		AFA139052F2BA889006538C2 /* AtlasDataProcessorPlusUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AtlasDataProcessorPlusUITestsLaunchTests.swift; sourceTree = "<group>"; };
+		AFA1395D2F2BAF75006538C2 /* TestData.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TestData.swift; sourceTree = "<group>"; };
+		AFA1395E2F2BAF75006538C2 /* Channel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Channel.swift; sourceTree = "<group>"; };
+		AFA139662F2BAF9C006538C2 /* MainWindowController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MainWindowController.swift; sourceTree = "<group>"; };
+		AFA139672F2BAF9C006538C2 /* ChannelViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ChannelViewController.swift; sourceTree = "<group>"; };
+		AFA139682F2BAF9C006538C2 /* SummaryViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SummaryViewController.swift; sourceTree = "<group>"; };
+		AFA139732F2BAFB7006538C2 /* DataReaderService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DataReaderService.swift; sourceTree = "<group>"; };
+		AFA1397F2F2BB17E006538C2 /* NSVStackLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NSVStackLayout.swift; sourceTree = "<group>"; };
+		AFA1398B2F2BB658006538C2 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		AFA1398D2F2BC581006538C2 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -95,11 +114,15 @@
 		AFA138E62F2BA886006538C2 /* AtlasDataProcessorPlus */ = {
 			isa = PBXGroup;
 			children = (
+				AFA139722F2BAFA7006538C2 /* Services */,
+				AFA139652F2BAF8A006538C2 /* Controllers */,
+				AFA139542F2BAF27006538C2 /* Models */,
 				AFA138E72F2BA886006538C2 /* AppDelegate.swift */,
 				AFA138E92F2BA886006538C2 /* ViewController.swift */,
 				AFA138EB2F2BA888006538C2 /* Assets.xcassets */,
-				AFA138ED2F2BA888006538C2 /* Main.storyboard */,
 				AFA138F02F2BA888006538C2 /* AtlasDataProcessorPlus.entitlements */,
+				AFA1398B2F2BB658006538C2 /* Info.plist */,
+				AFA1398D2F2BC581006538C2 /* main.swift */,
 			);
 			path = AtlasDataProcessorPlus;
 			sourceTree = "<group>";
@@ -119,6 +142,34 @@
 				AFA139052F2BA889006538C2 /* AtlasDataProcessorPlusUITestsLaunchTests.swift */,
 			);
 			path = AtlasDataProcessorPlusUITests;
+			sourceTree = "<group>";
+		};
+		AFA139542F2BAF27006538C2 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				AFA1395E2F2BAF75006538C2 /* Channel.swift */,
+				AFA1395D2F2BAF75006538C2 /* TestData.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		AFA139652F2BAF8A006538C2 /* Controllers */ = {
+			isa = PBXGroup;
+			children = (
+				AFA139672F2BAF9C006538C2 /* ChannelViewController.swift */,
+				AFA139662F2BAF9C006538C2 /* MainWindowController.swift */,
+				AFA139682F2BAF9C006538C2 /* SummaryViewController.swift */,
+				AFA1397F2F2BB17E006538C2 /* NSVStackLayout.swift */,
+			);
+			path = Controllers;
+			sourceTree = "<group>";
+		};
+		AFA139722F2BAFA7006538C2 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				AFA139732F2BAFB7006538C2 /* DataReaderService.swift */,
+			);
+			path = Services;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -226,7 +277,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				AFA138EC2F2BA888006538C2 /* Assets.xcassets in Resources */,
-				AFA138EF2F2BA888006538C2 /* Main.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -251,8 +301,16 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AFA139742F2BAFB7006538C2 /* DataReaderService.swift in Sources */,
+				AFA1395F2F2BAF75006538C2 /* TestData.swift in Sources */,
+				AFA139622F2BAF75006538C2 /* Channel.swift in Sources */,
+				AFA139802F2BB17E006538C2 /* NSVStackLayout.swift in Sources */,
 				AFA138EA2F2BA886006538C2 /* ViewController.swift in Sources */,
 				AFA138E82F2BA886006538C2 /* AppDelegate.swift in Sources */,
+				AFA1398E2F2BC581006538C2 /* main.swift in Sources */,
+				AFA1396C2F2BAF9C006538C2 /* ChannelViewController.swift in Sources */,
+				AFA1396F2F2BAF9C006538C2 /* SummaryViewController.swift in Sources */,
+				AFA139692F2BAF9C006538C2 /* MainWindowController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -261,6 +319,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				AFA138FA2F2BA889006538C2 /* AtlasDataProcessorPlusTests.swift in Sources */,
+				AFA139632F2BAF75006538C2 /* Channel.swift in Sources */,
+				AFA139602F2BAF75006538C2 /* TestData.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -268,6 +328,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AFA139612F2BAF75006538C2 /* TestData.swift in Sources */,
+				AFA139642F2BAF75006538C2 /* Channel.swift in Sources */,
 				AFA139042F2BA889006538C2 /* AtlasDataProcessorPlusUITests.swift in Sources */,
 				AFA139062F2BA889006538C2 /* AtlasDataProcessorPlusUITestsLaunchTests.swift in Sources */,
 			);
@@ -287,17 +349,6 @@
 			targetProxy = AFA139002F2BA889006538C2 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
-
-/* Begin PBXVariantGroup section */
-		AFA138ED2F2BA888006538C2 /* Main.storyboard */ = {
-			isa = PBXVariantGroup;
-			children = (
-				AFA138EE2F2BA888006538C2 /* Base */,
-			);
-			name = Main.storyboard;
-			sourceTree = "<group>";
-		};
-/* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
 		AFA139072F2BA889006538C2 /* Debug */ = {
@@ -352,8 +403,10 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = "$(PRODUCT_NAME)/Info.plist";
+				INFOPLIST_KEY_NSMainStoryboardFile = "";
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 13.7;
+				MACOSX_DEPLOYMENT_TARGET = 11.1;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -409,8 +462,10 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = "$(PRODUCT_NAME)/Info.plist";
+				INFOPLIST_KEY_NSMainStoryboardFile = "";
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 13.7;
+				MACOSX_DEPLOYMENT_TARGET = 11.1;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
@@ -430,13 +485,16 @@
 				DEVELOPMENT_TEAM = U3UMT8WQVD;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INFOPLIST_KEY_NSMainStoryboardFile = Main;
+				INFOPLIST_KEY_NSMainNibFile = MainMenu;
+				INFOPLIST_KEY_NSMainStoryboardFile = "";
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 11.1;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.bsd.AtlasDataProcessorPlus;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -457,13 +515,16 @@
 				DEVELOPMENT_TEAM = U3UMT8WQVD;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INFOPLIST_KEY_NSMainStoryboardFile = Main;
+				INFOPLIST_KEY_NSMainNibFile = MainMenu;
+				INFOPLIST_KEY_NSMainStoryboardFile = "";
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 11.1;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.bsd.AtlasDataProcessorPlus;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -477,11 +538,12 @@
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = U3UMT8WQVD;
 				GENERATE_INFOPLIST_FILE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 13.7;
+				MACOSX_DEPLOYMENT_TARGET = 11.1;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.bsd.AtlasDataProcessorPlusTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -496,11 +558,12 @@
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = U3UMT8WQVD;
 				GENERATE_INFOPLIST_FILE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 13.7;
+				MACOSX_DEPLOYMENT_TARGET = 11.1;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.bsd.AtlasDataProcessorPlusTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -518,6 +581,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = U3UMT8WQVD;
 				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 11.1;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.bsd.AtlasDataProcessorPlusUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -535,6 +599,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = U3UMT8WQVD;
 				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 11.1;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.bsd.AtlasDataProcessorPlusUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
