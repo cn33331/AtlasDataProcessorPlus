@@ -7,7 +7,7 @@
 
 import Cocoa
 
-class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTabViewDelegate {
+class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTabViewDelegate, NSSplitViewDelegate {
     
     private let basePath = URL(fileURLWithPath: "/Users/gdlocal/Library/Logs/Atlas/active")
     private var dataReaderService: DataReaderService!
@@ -40,7 +40,7 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTab
     // ✅ 添加无参数初始化方法
     convenience init() {
         // 创建窗口
-        let contentRect = NSRect(x: 196, y: 148, width: 900, height: 450)
+        let contentRect = NSRect(x: 0, y: 400, width: 900, height: 450)
         let window = NSWindow(
             contentRect: contentRect,
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
@@ -60,6 +60,7 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTab
         
         // 启动状态更新定时器
         Timer.scheduledTimer(timeInterval: 1.0, target: self, selector: #selector(updateStatus), userInfo: nil, repeats: true)
+
     }
     
     // ✅ 正确的指定初始化方法
@@ -78,14 +79,14 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTab
     override func windowDidLoad() {
         super.windowDidLoad()
         print("✅ MainWindowController.windowDidLoad() - 窗口已加载")
-        
+        // 注意：此方法不会被调用，因为窗口是通过代码手动创建的
+        // 如果将来改用 Xib/Storyboard 加载窗口，此方法会被自动调用
+        // 目前监控已在 convenience init() 中手动启动
+
         // 确保窗口设置正确
         if let window = window {
             print("🪟 窗口标题: \(window.title)")
             print("📏 窗口尺寸: \(window.frame)")
-            
-            // 开始监控（如果需要）
-            startMonitoring()
         }
     }
     
@@ -95,33 +96,57 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTab
         
         // 确保窗口显示在最前
         window?.makeKeyAndOrderFront(sender)
+
+        // 手动启动监控（因为 windowDidLoad() 不会在代码创建窗口时被调用）
+        startMonitoring()
+
+        // 延迟设置分割比例，确保视图布局完成后再设置
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            self.splitView.setPosition(220, ofDividerAt: 0)
+    }
+
     }
     
     private func setupUI() {
         print("🛠️ 开始设置UI")
+        // 获取窗口的内容视图容器
         let contentView = window!.contentView!
+        // 启用图层支持，允许设置背景色
         contentView.wantsLayer = true
+        // 设置白色背景
         contentView.layer?.backgroundColor = NSColor.white.cgColor
         
         // 控制面板
+        // 调用子方法创建控制面板（包含所有按钮、输入框等）
         setupControlView()
+        // 关键！ 禁用自动调整大小，启用 Auto Layout
         controlView.translatesAutoresizingMaskIntoConstraints = false
+        // - 将控制面板添加到内容视图
         contentView.addSubview(controlView)
         
         // 分割视图
+        // 创建分割视图容器
         splitView = NSSplitView()
-        splitView.isVertical = false // 设置为水平分割
+        // isVertical = false ： 水平分割 （上下布局）， true 则为左右分割
+        splitView.isVertical = true 
+        // 分隔条样式为细线
         splitView.dividerStyle = .thin
+        // 启用 Auto Layout
         splitView.translatesAutoresizingMaskIntoConstraints = false
+        // 添加到内容视图
         contentView.addSubview(splitView)
         
         // 左侧：汇总信息
+        // 创建一个容器视图
         let summaryView = NSView()
         summaryViewController = SummaryViewController()
+        // 设置反向引用，方便通信
         summaryViewController.mainWindowController = self
         summaryView.addSubview(summaryViewController.view)
         summaryViewController.view.frame = summaryView.bounds
+        // 允许视图随容器大小变化
         summaryViewController.view.autoresizingMask = [.width, .height]
+        // 将容器添加到分割视图
         splitView.addSubview(summaryView)
         
         // 右侧：通道详情标签页
@@ -129,12 +154,13 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTab
         // 顶部标签（最常见的）
 //        tabView.tabType = .topTabsBezel
 //        tabView.tabViewType = .topTabsBezelBorder
+        // 当标签太长时允许截断显示
         tabView.allowsTruncatedLabels = true
         tabView.delegate = self
         splitView.addSubview(tabView)
         
-        // 设置分割比例
-        splitView.setPosition(150, ofDividerAt: 0)
+        // 设置分割视图代理
+        splitView.delegate = self
         
         // 状态栏
         statusBar = NSTextField(labelWithString: "监控已启动，正在扫描通道...")
@@ -147,16 +173,19 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTab
         
         // 设置布局约束
         NSLayoutConstraint.activate([
+            // 控制面板约束
             controlView.topAnchor.constraint(equalTo: contentView.topAnchor),
             controlView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             controlView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             controlView.heightAnchor.constraint(equalToConstant: 80),
             
+            // 分割视图约束
             splitView.topAnchor.constraint(equalTo: controlView.bottomAnchor),
             splitView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             splitView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             splitView.bottomAnchor.constraint(equalTo: statusBar.topAnchor),
-            
+
+            // 状态栏约束
             statusBar.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             statusBar.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             statusBar.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
@@ -414,10 +443,11 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTab
         if isSummaryVisible {
             splitView.subviews[0].isHidden = false
             toggleSummaryButton.title = "隐藏汇总"
-            splitView.setPosition(150, ofDividerAt: 0)
+            splitView.setPosition(220, ofDividerAt: 0)
         } else {
             splitView.subviews[0].isHidden = true
             toggleSummaryButton.title = "显示汇总"
+            splitView.setPosition(0, ofDividerAt: 0)
         }
     }
     
@@ -477,7 +507,7 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTab
             }
         }
     }
-    
+
     func dataReaderService(_ service: DataReaderService, didClearChannelData channel: Channel) {
         DispatchQueue.main.async {
             let key = channel.name
@@ -528,8 +558,38 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTab
             statusBar.stringValue = "查看通道: \(channel.name)"
         }
     }
-}
 
+   // MARK: - NSSplitViewDelegate
+    
+    func splitView(_ splitView: NSSplitView, constrainMaxCoordinate proposedMaximumPosition: CGFloat, ofSubviewAt dividerIndex: Int) -> CGFloat {
+        // 限制左侧汇总区域的最大宽度为 220 像素
+        if dividerIndex == 0 {
+            return 220
+        }
+        return proposedMaximumPosition
+    }
+
+    func splitView(_ splitView: NSSplitView, constrainMinCoordinate proposedMinimumPosition: CGFloat, ofSubviewAt dividerIndex: Int) -> CGFloat {
+        // 限制左侧汇总区域的最小宽度为 0 像素
+        if dividerIndex == 0 {
+            return 0
+        }
+        return proposedMinimumPosition
+    }
+
+    // MARK: - NSWindowDelegate
+    
+    func windowDidResize(_ notification: Notification) {
+        // 窗口尺寸变化时，确保左侧宽度不超过最大限制
+        let maxLeftWidth: CGFloat = 220
+        let currentLeftWidth = splitView.subviews[0].frame.width
+        
+        if currentLeftWidth > maxLeftWidth {
+            splitView.setPosition(maxLeftWidth, ofDividerAt: 0)
+        }
+    }
+
+}
 // MARK: - NSWindowDelegate
 
 extension MainWindowController: NSWindowDelegate {

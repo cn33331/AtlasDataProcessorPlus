@@ -42,11 +42,14 @@ class SummaryViewController: NSViewController {
     
     private func setupUI() {
         // 创建主布局
+        // 自定义垂直堆叠布局容器 - 子视图之间的间距为 5像素 - 布局容器的内边距（上、左、下、右各 5像素）
         mainLayout = NSVStackLayout(spacing: 5, edgeInsets: NSEdgeInsets(top: 5, left: 5, bottom: 5, right: 5))
+        // 垂直方向堆叠
         mainLayout.orientation = .vertical
         view.addSubview(mainLayout)
         
         // 设置主布局的约束 - 填满整个视图
+        // - 左侧对齐- 右侧对齐- 顶部对齐- 底部对齐，自动填充整个左侧汇总区域的空间
         mainLayout.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             mainLayout.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -60,13 +63,6 @@ class SummaryViewController: NSViewController {
         titleLabel.font = NSFont.boldSystemFont(ofSize: 12)
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         mainLayout.addArrangedSubview(titleLabel)
-        
-        // 提示信息
-        let tipLabel = NSTextField(labelWithString: "提示: 双击通道名称可以查看该通道的详细数据")
-        tipLabel.textColor = NSColor.blue
-        tipLabel.font = NSFont.systemFont(ofSize: 10)
-        tipLabel.translatesAutoresizingMaskIntoConstraints = false
-        mainLayout.addArrangedSubview(tipLabel)
         
         // 表格视图容器
         let scrollView = NSScrollView()
@@ -88,7 +84,6 @@ class SummaryViewController: NSViewController {
         tableView.allowsMultipleSelection = false
         tableView.allowsColumnReordering = true
         tableView.allowsColumnResizing = true
-        tableView.doubleAction = #selector(onDoubleClick)
         
         // 设置表格样式
         tableView.usesAlternatingRowBackgroundColors = true
@@ -204,14 +199,7 @@ class SummaryViewController: NSViewController {
     }
     
     // MARK: - 事件处理
-    
-    @objc private func onDoubleClick() {
-        let selectedRow = tableView.clickedRow
-        if selectedRow >= 0 && selectedRow < dataSource.count {
-            let channel = dataSource[selectedRow]
-            mainWindowController?.showChannelDetails(channel)
-        }
-    }
+
     
     @objc private func tableViewDidResize(_ notification: Notification) {
         // 当表格大小改变时，调整最后一列的宽度
@@ -340,7 +328,6 @@ extension SummaryViewController: NSTableViewDelegate {
             if identifier == "channel" {
                 textField.textColor = NSColor.blue
                 textField.font = NSFont.systemFont(ofSize: 12, weight: .medium)
-                textField.toolTip = "双击查看详情: \(channel.name)"
             } else if identifier == "status" {
                 switch channel.status {
                 case .running:
@@ -378,11 +365,11 @@ extension SummaryViewController: NSTableViewDelegate {
     }
     
     func tableViewSelectionDidChange(_ notification: Notification) {
-        // 选择改变时的处理
         if tableView.selectedRow >= 0 && tableView.selectedRow < dataSource.count {
             let channel = dataSource[tableView.selectedRow]
-            // 可以在这里添加选中处理逻辑
             print("选中通道: \(channel.name)")
+            // 跳转到对应的通道详情标签页
+            mainWindowController?.showChannelDetails(channel)
         }
     }
 }

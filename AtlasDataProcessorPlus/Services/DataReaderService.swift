@@ -40,6 +40,9 @@ class DataReaderService {
             self.checkFiles()
         }
         timer?.resume()
+        // 立即扫描通道，不需要等待5秒
+        scanChannels()
+        lastScanTime = Date()
     }
     
     func stop() {
