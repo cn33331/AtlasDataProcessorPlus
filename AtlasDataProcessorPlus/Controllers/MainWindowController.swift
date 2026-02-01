@@ -12,6 +12,7 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTab
     private let basePath = URL(fileURLWithPath: "/Users/gdlocal/Library/Logs/Atlas/active")
     private var dataReaderService: DataReaderService!
     private var channelControllers: [String: ChannelViewController] = [:] // key: "group-slot"
+    private var sharedScrollPosition: Int = 0 // 所有通道共享的滚动位置 滚动位置
     private var summaryViewController: SummaryViewController!
     
     // UI 组件声明 - 必须要有这些！
@@ -477,6 +478,16 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTab
                 channelController.mainWindowController = self
                 channelController.autoScroll = self.autoScroll
                 channelController.showFailOnly = self.showFailOnly
+                
+                // 设置滚动回调，更新共享的滚动位置
+                channelController.onScrollPositionChanged = { [weak self] row in
+                    guard let self = self else { return }
+                    self.sharedScrollPosition = row
+                    #if DEBUG
+                    print("💾 更新共享滚动位置: \(row)")
+                    #endif
+                }
+                
                 self.channelControllers[key] = channelController
                 
                 // 添加到标签页
@@ -515,7 +526,65 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTab
                 controller.updateTable()
                 self.summaryViewController.updateChannelStats(channel)
                 self.statusBar.stringValue = "通道 \(channel.name) 开始新一轮测试，数据已清空"
+                // 重置共享滚动位置
+                self.sharedScrollPosition = 0
             }
+        }
+    }
+    
+    // MARK: - NSTabViewDelegate
+    
+    func tabView(_ tabView: NSTabView, didSelect tabViewItem: NSTabViewItem?) {
+        #if DEBUG
+        print("🔄 tabView(_:didSelect:) 被调用")
+        print("📌 选中的标签页: \(tabViewItem?.label ?? "nil")")
+        #endif
+        
+        // 当标签页被选中时，恢复共享的滚动位置
+        if let identifier = tabViewItem?.identifier as? String {
+            #if DEBUG
+            print("🏷️ 标签页标识符: \(identifier)")
+            #endif
+            
+            // 恢复新选中标签页的滚动位置
+            if let controller = channelControllers[identifier] {
+                #if DEBUG
+                print("📊 新通道控制器: \(controller.channel.name)")
+                print("   表格行数: \(controller.tableView.numberOfRows)")
+                print("📍 共享滚动位置: \(sharedScrollPosition)")
+                #endif
+                
+                // 使用共享的滚动位置，确保不超出范围
+                let scrollRow = min(sharedScrollPosition, max(0, controller.tableView.numberOfRows - 1))
+                
+                if controller.tableView.numberOfRows > 0 && scrollRow >= 0 {
+                    #if DEBUG
+                    print("✅ 滚动到第 \(scrollRow) 行")
+                    #endif
+                    
+                    controller.tableView.scrollRowToVisible(scrollRow)
+                    
+                    #if DEBUG
+                    // 验证滚动是否成功
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        let newVisibleRow = controller.visibleRow
+                        print("🔍 滚动后可见行: \(newVisibleRow)")
+                    }
+                    #endif
+                } else {
+                    #if DEBUG
+                    print("⚠️ 无法滚动：表格行数为 0 或滚动位置无效")
+                    #endif
+                }
+            } else {
+                #if DEBUG
+                print("⚠️ 找不到通道控制器: \(identifier)")
+                #endif
+            }
+        } else {
+            #if DEBUG
+            print("⚠️ 标签页标识符为 nil")
+            #endif
         }
     }
     
@@ -547,6 +616,15 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTab
             channelController.mainWindowController = self
             channelController.autoScroll = autoScroll
             channelController.showFailOnly = showFailOnly
+            
+            // 设置滚动回调，更新共享的滚动位置
+            channelController.onScrollPositionChanged = { [weak self] row in
+                guard let self = self else { return }
+                self.sharedScrollPosition = row
+                #if DEBUG
+                print("💾 更新共享滚动位置: \(row)")
+                #endif
+            }
             channelControllers[key] = channelController
             
             let tabViewItem = NSTabViewItem(identifier: key)

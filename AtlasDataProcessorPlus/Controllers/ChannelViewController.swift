@@ -14,7 +14,26 @@ class ChannelViewController: NSViewController {
     var autoScroll: Bool = true
     var showFailOnly: Bool = false
     
-    private var tableView: NSTableView!
+    // 暴露表格的可见行位置
+    var visibleRow: Int {
+        get {
+            let visibleRect = tableView.visibleRect
+            let visibleRows = tableView.rows(in: visibleRect)
+            return visibleRows.location
+        }
+        set {
+            if newValue >= 0 && newValue < tableView.numberOfRows {
+                tableView.scrollRowToVisible(newValue)
+            }
+        }
+    }
+    
+    // 滚动位置回调
+    var onScrollPositionChanged: ((Int) -> Void)?
+    
+    private var isScrolling: Bool = false
+    
+    var tableView: NSTableView! // 改为公开属性，方便 MainWindowController 访问
     private var titleLabel: NSTextField!
     private var dataSource: [TestData] = []
     private var mainLayout: NSVStackLayout!
@@ -155,12 +174,20 @@ class ChannelViewController: NSViewController {
         
         tableView.menu = menu
         
-        // 通知监听
+        // 通知监听 - 表格大小变化
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(tableViewDidResize(_:)),
             name: NSView.frameDidChangeNotification,
             object: tableView
+        )
+        
+        // 通知监听 - 滚动视图滚动
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(scrollViewDidScroll(_:)),
+            name: NSScrollView.didLiveScrollNotification,
+            object: scrollView
         )
     }
     
@@ -247,6 +274,21 @@ class ChannelViewController: NSViewController {
     
     @objc private func tableViewDidResize(_ notification: Notification) {
         tableView.sizeLastColumnToFit()
+    }
+    
+    @objc private func scrollViewDidScroll(_ notification: Notification) {
+        // 防止频繁回调
+        if isScrolling {
+            return
+        }
+        isScrolling = true
+        
+        // 延迟通知，避免滚动过程中频繁触发
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            let currentRow = self.visibleRow
+            self.onScrollPositionChanged?(currentRow)
+            self.isScrolling = false
+        }
     }
     
     // MARK: - 内存管理

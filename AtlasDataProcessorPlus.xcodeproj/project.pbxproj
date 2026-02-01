@@ -126,6 +126,7 @@
 			);
 			path = AtlasDataProcessorPlus;
 			sourceTree = "<group>";
+			usesTabs = 0;
 		};
 		AFA138F82F2BA889006538C2 /* AtlasDataProcessorPlusTests */ = {
 			isa = PBXGroup;
