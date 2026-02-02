@@ -41,7 +41,7 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTab
     // ✅ 添加无参数初始化方法
     convenience init() {
         // 创建窗口
-        let contentRect = NSRect(x: 0, y: 400, width: 900, height: 450)
+        let contentRect = NSRect(x: 0, y: 400, width: 1210, height: 450)
         let window = NSWindow(
             contentRect: contentRect,
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
@@ -421,7 +421,7 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTab
         showFailOnly = showFailOnlyCheckbox.state == .on
         
         for (_, controller) in channelControllers {
-            controller.channel.showFailOnly = showFailOnly
+            controller.showFailOnly = showFailOnly
             controller.updateTable()
         }
         

@@ -116,8 +116,8 @@ class ChannelViewController: NSViewController {
         // 添加列
         let testNameColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("testName"))
         testNameColumn.title = "testName"
-        testNameColumn.width = 650
-        testNameColumn.minWidth = 300
+        testNameColumn.width = 500
+        testNameColumn.minWidth = 600
         testNameColumn.maxWidth = 800
         tableView.addTableColumn(testNameColumn)
         
@@ -385,16 +385,26 @@ extension ChannelViewController: NSTableViewDelegate {
         return cell
     }
     
+    // ❌ 删除这个方法（不会被调用）在基于单元格模式下被调用
     func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
         let rowView = NSTableRowView()
         let testData = dataSource[row]
         
-        // FAIL 时设置整行背景色
         if testData.status == "FAIL" {
-            rowView.backgroundColor = NSColor(red: 1.0, green: 0.78, blue: 0.78, alpha: 1.0)
+            rowView.backgroundColor = NSColor(red: 1.0, green: 0.85, blue: 0.85, alpha: 1.0)
         }
         
         return rowView
+    }
+
+    // ✅ 使用这个方法（会被调用）基于视图模式
+    func tableView(_ tableView: NSTableView, didAdd rowView: NSTableRowView, forRow row: Int) {
+        if row < dataSource.count {
+            let testData = dataSource[row]
+            if testData.status == "FAIL" {
+                rowView.backgroundColor = NSColor(red: 1.0, green: 0.85, blue: 0.85, alpha: 1.0)
+            }
+        }
     }
     
     func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {

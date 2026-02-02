@@ -94,16 +94,16 @@ class SummaryViewController: NSViewController {
         // 添加列
         let channelColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("channel"))
         channelColumn.title = "通道"
-        channelColumn.width = 100
+        channelColumn.width = 80
         channelColumn.minWidth = 80
-        channelColumn.maxWidth = 200
+        channelColumn.maxWidth = 80
         tableView.addTableColumn(channelColumn)
         
         let statusColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("status"))
         statusColumn.title = "状态"
         statusColumn.width = 60
-        statusColumn.minWidth = 50
-        statusColumn.maxWidth = 80
+        statusColumn.minWidth = 60
+        statusColumn.maxWidth = 60
         tableView.addTableColumn(statusColumn)
         
         let failColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("fail"))
@@ -351,6 +351,16 @@ extension SummaryViewController: NSTableViewDelegate {
                 textField.font = NSFont.systemFont(ofSize: 10)
                 textField.textColor = NSColor.darkGray
             }
+            // 设置行背景色（只在第一列设置一次）每次渲染单元格
+            if identifier == "channel" {
+                if let rowView = cell.superview as? NSTableRowView {
+                    if channel.failCount > 0 {
+                        rowView.backgroundColor = NSColor(red: 1.0, green: 0.85, blue: 0.85, alpha: 1.0)
+                    } else {
+                        rowView.backgroundColor = NSColor.white
+                    }
+                }
+            }
         }
         
         return cell
@@ -358,6 +368,17 @@ extension SummaryViewController: NSTableViewDelegate {
     
     func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
         return 22
+    }
+
+    // 只在行视图首次添加时调用
+    func tableView(_ tableView: NSTableView, didAdd rowView: NSTableRowView, forRow row: Int) {
+        // 为 FAIL 数目大于 0 的行设置背景色
+        if row < dataSource.count {
+            let channel = dataSource[row]
+            if channel.failCount > 0 {
+                rowView.backgroundColor = NSColor(red: 1.0, green: 0.85, blue: 0.85, alpha: 1.0)
+            }
+        }
     }
     
     func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool {
