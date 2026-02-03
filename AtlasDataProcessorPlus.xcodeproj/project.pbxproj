@@ -25,6 +25,8 @@
 		AFA139742F2BAFB7006538C2 /* DataReaderService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA139732F2BAFB7006538C2 /* DataReaderService.swift */; };
 		AFA139802F2BB17E006538C2 /* NSVStackLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA1397F2F2BB17E006538C2 /* NSVStackLayout.swift */; };
 		AFA1398E2F2BC581006538C2 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA1398D2F2BC581006538C2 /* main.swift */; };
+		AFA139902F324459006538C2 /* HistoryWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA1398F2F324459006538C2 /* HistoryWindowController.swift */; };
+		AFA139922F324D1F006538C2 /* AtlasDataProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA139912F324D1F006538C2 /* AtlasDataProcessor.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -64,6 +66,8 @@
 		AFA1397F2F2BB17E006538C2 /* NSVStackLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NSVStackLayout.swift; sourceTree = "<group>"; };
 		AFA1398B2F2BB658006538C2 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AFA1398D2F2BC581006538C2 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		AFA1398F2F324459006538C2 /* HistoryWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryWindowController.swift; sourceTree = "<group>"; };
+		AFA139912F324D1F006538C2 /* AtlasDataProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AtlasDataProcessor.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -150,6 +154,7 @@
 			children = (
 				AFA1395E2F2BAF75006538C2 /* Channel.swift */,
 				AFA1395D2F2BAF75006538C2 /* TestData.swift */,
+				AFA139912F324D1F006538C2 /* AtlasDataProcessor.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -161,6 +166,7 @@
 				AFA139662F2BAF9C006538C2 /* MainWindowController.swift */,
 				AFA139682F2BAF9C006538C2 /* SummaryViewController.swift */,
 				AFA1397F2F2BB17E006538C2 /* NSVStackLayout.swift */,
+				AFA1398F2F324459006538C2 /* HistoryWindowController.swift */,
 			);
 			path = Controllers;
 			sourceTree = "<group>";
@@ -304,6 +310,7 @@
 			files = (
 				AFA139742F2BAFB7006538C2 /* DataReaderService.swift in Sources */,
 				AFA1395F2F2BAF75006538C2 /* TestData.swift in Sources */,
+				AFA139902F324459006538C2 /* HistoryWindowController.swift in Sources */,
 				AFA139622F2BAF75006538C2 /* Channel.swift in Sources */,
 				AFA139802F2BB17E006538C2 /* NSVStackLayout.swift in Sources */,
 				AFA138EA2F2BA886006538C2 /* ViewController.swift in Sources */,
@@ -311,6 +318,7 @@
 				AFA1398E2F2BC581006538C2 /* main.swift in Sources */,
 				AFA1396C2F2BAF9C006538C2 /* ChannelViewController.swift in Sources */,
 				AFA1396F2F2BAF9C006538C2 /* SummaryViewController.swift in Sources */,
+				AFA139922F324D1F006538C2 /* AtlasDataProcessor.swift in Sources */,
 				AFA139692F2BAF9C006538C2 /* MainWindowController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

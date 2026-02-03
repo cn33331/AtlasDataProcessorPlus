@@ -58,6 +58,23 @@ func setupApplicationMenu() {
         keyEquivalent: "o"
     ))
     
+    fileMenu.addItem(NSMenuItem.separator())
+    
+    // 添加历史数据菜单项
+    let historyMenuItem = NSMenuItem(
+        title: "历史数据",
+        action: #selector(AppDelegate.showHistoryWindow(_:)),
+        keyEquivalent: "h"
+    )
+    historyMenuItem.target = delegate
+    fileMenu.addItem(historyMenuItem)
+    
+    #if DEBUG
+    print("📌 历史数据菜单项已添加")
+    print("   - target: \(delegate)")
+    print("   - action: \(#selector(AppDelegate.showHistoryWindow(_:)))")
+    #endif
+    
     fileMenuItem.submenu = fileMenu
     mainMenu.addItem(fileMenuItem)
     
