@@ -360,13 +360,30 @@ class AtlasDataProcessor {
     func getFailureSummary() -> [String] {
         let failInfo = extractFailInfo()
         
-        return failInfo.map { info in
+        var result: [String] = []
+        
+        for info in failInfo {
             let time = info["测试时间"] ?? "未知时间"
             let path = info["文件路径"] ?? "未知文件"
             let tests = info["失败用例列表"] ?? "无具体用例"
             
-            return "\(time) | \(tests) | \(path)"
+            // 按分号分割失败用例
+            let testCases = tests.components(separatedBy: ";")
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+            
+            if testCases.isEmpty {
+                // 如果没有具体的失败用例，保留一行
+                result.append("\(time) | \(tests) | \(path)")
+            } else {
+                // 将每个失败用例单独作为一行
+                for testCase in testCases {
+                    result.append("\(time) | \(testCase) | \(path)")
+                }
+            }
         }
+        
+        return result
     }
     
     func exportToJSON(outputDir: String) -> String? {
@@ -446,40 +463,6 @@ private extension AtlasDataProcessor {
             return ""
         }
         
-        let formatters: [(String, DateFormatter)] = [
-            // C格式: 2025-06-18 16:36:40.449000
-            ("yyyy-MM-dd HH:mm:ss.SSSSSS", {
-                let fmt = DateFormatter()
-                fmt.dateFormat = "yyyy-MM-dd HH:mm:ss.SSSSSS"
-                fmt.locale = Locale(identifier: "en_US_POSIX")
-                return fmt
-            }()),
-            
-            // A格式: Jun 18 2025 4:24:34.3390 PM
-            ("MMM dd yyyy h:mm:ss.SSSS a", {
-                let fmt = DateFormatter()
-                fmt.dateFormat = "MMM dd yyyy h:mm:ss.SSSS a"
-                fmt.locale = Locale(identifier: "en_US_POSIX")
-                return fmt
-            }()),
-            
-            // 中文格式: 6月 18 2025 4:24:34.3390 上午
-            ("MMM dd yyyy h:mm:ss.SSSS a", {
-                let fmt = DateFormatter()
-                fmt.dateFormat = "MMM dd yyyy h:mm:ss.SSSS a"
-                fmt.locale = Locale(identifier: "zh_CN")
-                return fmt
-            }()),
-            
-            // B格式: 6月 18 2025 4:24:34.3390 上午 (去除中文月份)
-            ("M dd yyyy h:mm:ss.SSSS a", {
-                let fmt = DateFormatter()
-                fmt.dateFormat = "M dd yyyy h:mm:ss.SSSS a"
-                fmt.locale = Locale(identifier: "en_US_POSIX")
-                return fmt
-            }())
-        ]
-        
         var cleanedTime = timeStr
         
         // 预处理：移除中文字符
@@ -498,12 +481,67 @@ private extension AtlasDataProcessor {
             cleanedTime = String(cleanedTime[..<dotRange.lowerBound])
         }
         
-        // 尝试所有格式
-        for (_, formatter) in formatters {
+        // 调试信息
+        #if DEBUG
+        print("尝试转换时间: \(cleanedTime)")
+        #endif
+        
+        // 方法1：使用NSDateFormatter
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        
+        // 尝试多种可能的格式
+        let formats = [
+            "MMM dd yyyy h:mm:ss a",  // Jan 19 2026 7:53:45 PM
+            "yyyy-MM-dd HH:mm:ss",      // 2025-06-18 16:36:40
+            "MM/dd/yyyy HH:mm:ss",      // 01/19/2026 19:53:45
+            "dd/MM/yyyy HH:mm:ss",      // 19/01/2026 19:53:45
+            "MMM dd yyyy HH:mm:ss",     // Jan 19 2026 19:53:45
+            "yyyy-MM-dd'T'HH:mm:ss"      // ISO格式
+        ]
+        
+        for format in formats {
+            formatter.dateFormat = format
             if let date = formatter.date(from: cleanedTime) {
-                let outputFormatter = DateFormatter()
-                outputFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-                return outputFormatter.string(from: date)
+                formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+                let result = formatter.string(from: date)
+                #if DEBUG
+                print("成功转换: \(result) (格式: \(format))")
+                #endif
+                return result
+            }
+        }
+        
+        // 方法2：使用正则表达式提取时间组件并手动构建
+        // 尝试匹配 "Jan 19 2026 7:53:45 PM" 格式
+        let regexPattern = #"(\w{3})\s+(\d{1,2})\s+(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})\s+(AM|PM)"#
+        if let regex = try? NSRegularExpression(pattern: regexPattern, options: []),
+           let match = regex.firstMatch(in: cleanedTime, range: NSRange(cleanedTime.startIndex..., in: cleanedTime)) {
+            
+            // 提取组件
+            let monthStr = (cleanedTime as NSString).substring(with: match.range(at: 1))
+            let day = (cleanedTime as NSString).substring(with: match.range(at: 2))
+            let year = (cleanedTime as NSString).substring(with: match.range(at: 3))
+            let hour = (cleanedTime as NSString).substring(with: match.range(at: 4))
+            let minute = (cleanedTime as NSString).substring(with: match.range(at: 5))
+            let second = (cleanedTime as NSString).substring(with: match.range(at: 6))
+            let meridian = (cleanedTime as NSString).substring(with: match.range(at: 7))
+            
+            // 构建标准格式的日期字符串
+            let standardFormat = "\(monthStr) \(day) \(year) \(hour):\(minute):\(second) \(meridian)"
+            
+            // 使用固定格式尝试解析
+            let standardFormatter = DateFormatter()
+            standardFormatter.locale = Locale(identifier: "en_US_POSIX")
+            standardFormatter.dateFormat = "MMM dd yyyy h:mm:ss a"
+            
+            if let date = standardFormatter.date(from: standardFormat) {
+                standardFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+                let result = standardFormatter.string(from: date)
+                #if DEBUG
+                print("正则成功转换: \(result)")
+                #endif
+                return result
             }
         }
         
@@ -711,7 +749,7 @@ private extension AtlasDataProcessor {
         
         // 构建plus版的标题行（包含文件路径）
         var headerRowPlus = headerRow
-        headerRowPlus.insert(" ", at: 12) // 在"List of Failing Tests"之前
+        headerRowPlus.insert("file_path", at: 12) // 在"List of Failing Tests"之后
         
         // 构建上限行
         var upperRow: [String] = ["Upper Limit ----->"]
@@ -812,7 +850,7 @@ extension AtlasDataProcessor {
         }
         
         let headerRow = finalDataPlus[0]
-        
+        // print("Plus版标题行: \(headerRow)")
         guard let statusColIdx = headerRow.firstIndex(of: "Test Pass/Fail Status"),
               let failTestsColIdx = headerRow.firstIndex(of: "List of Failing Tests"),
               let filePathColIdx = headerRow.firstIndex(of: "file_path"),
