@@ -415,6 +415,12 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTab
     
     @objc private func autoScrollChanged() {
         autoScroll = autoScrollCheckbox.state == .on
+        
+        for (_, controller) in channelControllers {
+            controller.autoScroll = autoScroll
+        }
+        
+        statusBar.stringValue = autoScroll ? "已启用自动滚动模式" : "已禁用自动滚动模式"
     }
     
     @objc private func showFailOnlyChanged() {
