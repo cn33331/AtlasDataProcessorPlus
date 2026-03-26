@@ -88,22 +88,89 @@ SummaryViewController.swift - 汇总信息控制器
    - 实时更新各通道的PASS/FAIL统计
 
 HistoryWindowController.swift - 历史数据处理控制器
-   - 批量处理历史测试数据文件
-   - 显示失败记录详情表格
-   - 支持导出数据为CSV和JSON格式
-   - 提供数据处理进度和统计信息
+   - **批量数据处理**：
+     - 处理指定目录下的历史测试数据文件
+     - 支持CSV格式数据解析和转换
+     - 生成汇总统计信息和失败记录
+     - 提供异步处理接口，避免阻塞UI
+   - **失败记录展示**：
+     - 以表格形式显示失败记录详情
+     - 包含序号、测试时间、失败用例、文件路径等列
+     - 支持动态行高，适应长文本内容
+     - 提供工具提示，显示完整内容
    - **高级筛选功能**：
      - 点击列标题打开筛选菜单
      - 使用NSPopover显示筛选选项
      - 支持多选筛选值
      - 提供全选/取消全选功能
-     - 可调整筛选窗口大小
+     - 可调整筛选窗口大小（最大宽度800）
+     - 长按拖动快速勾选功能，提高操作效率
+     - 筛选界面靠左对齐，布局整齐美观
    - **排序功能**：
      - 支持升序和降序排序
      - 可按任意列进行排序
+     - 排序结果实时更新
    - **文件路径操作**：
      - 双击文件路径列打开文件所在位置
+     - 方便快速定位测试数据文件
+   - **数据导出**：
+     - 支持导出数据为CSV格式
+     - 支持导出数据为CSV Plus格式（包含更多信息）
+     - 支持导出数据为JSON格式
+     - 导出文件自动命名，包含时间戳
+   - **用户界面**：
+     - 直观的控制面板，支持选择数据目录
+     - 实时显示处理状态和统计信息
+     - 响应式布局，适应不同窗口大小
+     - 自定义表头视图，支持点击事件
+     - 自定义复选框，支持长按拖动操作
+   - **技术实现**：
+     - 使用MVC架构，代码结构清晰
+     - 异步数据处理，确保UI响应性
+     - 高效的筛选和排序算法
+     - 模块化设计，易于扩展和维护
 
+```
+NSWindow
+└── NSViewController.view (NSView)
+    ├── NSStackView (垂直)
+    │   ├── 控制面板 (NSView)
+    │   │   ├── 路径标签 (NSTextField)
+    │   │   ├── 路径输入框 (NSTextField)
+    │   │   ├── 浏览按钮 (NSButton)
+    │   │   └── 处理按钮 (NSButton)
+    │   ├── 表格视图容器 (NSView)
+    │   │   ├── 表格标题 (NSTextField)
+    │   │   ├── 提示标签 (NSTextField)
+    │   │   └── NSScrollView
+    │   │       └── NSTableView
+    │   │           ├── CustomTableHeaderView
+    │   │           └── 表格列和单元格
+    │   └── 操作按钮 (NSView)
+    │       └── NSStackView (水平)
+    │           ├── 保存CSV按钮 (NSButton)
+    │           ├── 保存CSV Plus按钮 (NSButton)
+    │           └── 导出JSON按钮 (NSButton)
+    └── 状态栏 (NSTextField)
+
+// 筛选功能
+NSPopover
+└── NSViewController.view (NSView)
+    └── NSStackView (垂直)
+        ├── 标题 (NSTextField)
+        ├── 全选按钮 (NSButton)
+        ├── 分隔线 (NSBox)
+        ├── NSScrollView（滚动容器，自带滚动条）
+        │   └── 滚动条（自动生成/隐藏）
+        │   └── NSView（内容视图）
+        │       └── NSStackView (垂直)
+        │            └── DraggableCheckBox
+        ├── 分隔线 (NSBox)
+        └── NSView
+            └── NSStackView (水平)
+                ├── 取消按钮 (NSButton)
+                └── 确认按钮 (NSButton)
+```
 ### 其他组件
 NSVStackLayout.swift - 自定义垂直布局
    - 实现垂直堆叠布局容器

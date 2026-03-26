@@ -42,6 +42,34 @@ class CustomTableHeaderView: NSTableHeaderView {
     }
 }
 
+// 普通复选框，使用长按手势实现快速多选
+class PressableCheckBox: NSButton {
+    var onLongPress: (() -> Void)?
+    
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        setupGestureRecognizer()
+    }
+    
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setupGestureRecognizer()
+    }
+    
+    private func setupGestureRecognizer() {
+        let pressGesture = NSPressGestureRecognizer(target: self, action: #selector(handleLongPress))
+        pressGesture.minimumPressDuration = 0.2 // 长按时间阈值
+        pressGesture.allowableMovement = 10 // 允许的移动范围
+        addGestureRecognizer(pressGesture)
+    }
+    
+    @objc private func handleLongPress(gesture: NSPressGestureRecognizer) {
+        if gesture.state == .began {
+            onLongPress?()
+        }
+    }
+}
+
 class HistoryWindowController: NSWindowController {
     
     // MARK: - UI 组件
@@ -456,7 +484,7 @@ class HistoryWindowController: NSWindowController {
         popover.contentSize = contentSize
         
         // 显示Popover
-        if let event = event, let headerView = tableView.headerView {
+        if let _ = event, let headerView = tableView.headerView {
             popover.show(relativeTo: headerView.bounds, of: headerView, preferredEdge: .maxY)
         } else if let window = self.window {
             popover.show(relativeTo: window.contentView!.bounds, of: window.contentView!, preferredEdge: .minY)
@@ -465,6 +493,13 @@ class HistoryWindowController: NSWindowController {
     
     // 为NSButton添加representedObject属性
     private var buttonRepresentedObjects = [NSButton: Any]()
+    
+    // 长按拖动多选相关
+    private var isMultiSelectMode = false
+    private var selectedCheckBoxes = Set<NSButton>()
+    private var currentFilterColumn: String?
+    private var currentPopover: NSPopover?
+    private var scrollView: NSScrollView? // 用于自动滚动
     
     // 创建筛选视图
     private func createFilterView(columnName: String, popover: NSPopover) -> NSView {
@@ -489,6 +524,7 @@ class HistoryWindowController: NSWindowController {
         titleLabel.font = NSFont.systemFont(ofSize: 14, weight: .medium)
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         titleLabel.autoresizingMask = .width
+        titleLabel.alignment = .left
         stackView.addArrangedSubview(titleLabel)
         
         // 全选按钮
@@ -496,6 +532,7 @@ class HistoryWindowController: NSWindowController {
         selectAllButton.bezelStyle = .texturedRounded
         selectAllButton.translatesAutoresizingMaskIntoConstraints = false
         selectAllButton.autoresizingMask = .width
+        selectAllButton.alignment = .left
         buttonRepresentedObjects[selectAllButton] = ["columnName": columnName, "popover": popover]
         stackView.addArrangedSubview(selectAllButton)
         
@@ -523,23 +560,42 @@ class HistoryWindowController: NSWindowController {
         let optionsStackView = NSStackView()
         optionsStackView.orientation = .vertical
         optionsStackView.spacing = 4
+        optionsStackView.alignment = .leading // 设置左对齐
+        optionsStackView.edgeInsets = NSEdgeInsets(top: 8, left: 12, bottom: 8, right: 12) // 设置边距
         optionsStackView.translatesAutoresizingMaskIntoConstraints = false
         optionsStackView.autoresizingMask = .width
+        optionsStackView.widthAnchor.constraint(equalToConstant: 768).isActive = true // 让StackView宽度撑满父视图
         optionsView.addSubview(optionsStackView)
         
         // 获取该列的所有唯一值
         let columnValues = getColumnValues(columnName: columnName)
         
+        // 保存当前列名和popover
+        currentFilterColumn = columnName
+        currentPopover = popover
+        
         // 添加各个选项
         for value in columnValues.sorted() {
-            let checkBox = NSButton(checkboxWithTitle: value, target: self, action: #selector(toggleFilterValueInPopover(_:)))
+            let checkBox = PressableCheckBox()
+            checkBox.setButtonType(.switch)
+            checkBox.title = value
+            checkBox.target = self
+            checkBox.action = #selector(toggleFilterValueInPopover(_:))
             checkBox.translatesAutoresizingMaskIntoConstraints = false
-            checkBox.autoresizingMask = .width
             checkBox.state = filters[columnName]?.contains(value) ?? false ? .on : .off
             buttonRepresentedObjects[checkBox] = ["column": columnName, "value": value]
             
             // 确保复选框能够适应宽度
             checkBox.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+            
+            // 靠左对齐
+            checkBox.alignment = .left
+            
+            // 添加长按手势处理
+            checkBox.onLongPress = {
+                [weak self] in
+                self?.startMultiSelectMode()
+            }
             
             optionsStackView.addArrangedSubview(checkBox)
         }
@@ -672,7 +728,6 @@ class HistoryWindowController: NSWindowController {
     // 确认筛选
     @objc private func confirmFilter(_ sender: NSButton) {
         guard let data = buttonRepresentedObjects[sender] as? [String: Any],
-              let columnName = data["columnName"] as? String,
               let popover = data["popover"] as? NSPopover else { return }
         
         // 应用筛选
@@ -680,6 +735,117 @@ class HistoryWindowController: NSWindowController {
         
         // 关闭Popover
         popover.performClose(sender)
+    }
+    
+    // 开始多选模式
+    private func startMultiSelectMode() {
+        isMultiSelectMode = true
+        selectedCheckBoxes.removeAll()
+        
+        // 开始监听鼠标事件
+        NSEvent.addLocalMonitorForEvents(matching: .leftMouseDragged) { [weak self] event in
+            self?.handleMouseDragged(event)
+            return event
+        }
+        
+        NSEvent.addLocalMonitorForEvents(matching: .leftMouseUp) { [weak self] event in
+            self?.handleMouseUp(event)
+            return event
+        }
+    }
+    
+    // 处理鼠标拖动
+    private func handleMouseDragged(_ event: NSEvent) {
+        if !isMultiSelectMode { return }
+        
+        // 获取鼠标位置
+        let mouseLocation = event.locationInWindow
+        
+        // 碰撞检测
+        detectCheckBoxes(at: mouseLocation)
+        
+        // 自动滚动
+        handleAutoScroll(at: mouseLocation)
+    }
+    
+    // 碰撞检测
+    private func detectCheckBoxes(at location: NSPoint) {
+        guard let popover = currentPopover, let contentView = popover.contentViewController?.view else { return }
+        
+        // 遍历所有子视图，找到所有的PressableCheckBox
+        func findCheckBoxes(in view: NSView) -> [PressableCheckBox] {
+            var checkBoxes: [PressableCheckBox] = []
+            for subview in view.subviews {
+                if let checkBox = subview as? PressableCheckBox {
+                    checkBoxes.append(checkBox)
+                } else {
+                    checkBoxes.append(contentsOf: findCheckBoxes(in: subview))
+                }
+            }
+            return checkBoxes
+        }
+        
+        let checkBoxes = findCheckBoxes(in: contentView)
+        
+        // 遍历所有复选框
+        for checkBox in checkBoxes {
+            // 转换鼠标位置到复选框坐标系
+            let localPoint = checkBox.convert(location, from: nil)
+            
+            // 检查是否在复选框范围内
+            if checkBox.bounds.contains(localPoint) && !selectedCheckBoxes.contains(checkBox) {
+                // 切换状态
+                checkBox.state = .on
+                selectedCheckBoxes.insert(checkBox)
+                
+                // 触发action
+                if let action = checkBox.action, let target = checkBox.target {
+                    NSApp.sendAction(action, to: target, from: checkBox)
+                }
+            }
+        }
+    }
+    
+    // 自动滚动
+    private func handleAutoScroll(at location: NSPoint) {
+        guard let popover = currentPopover, let contentView = popover.contentViewController?.view else { return }
+        
+        // 遍历所有子视图，找到滚动视图
+        func findScrollView(in view: NSView) -> NSScrollView? {
+            for subview in view.subviews {
+                if let scrollView = subview as? NSScrollView {
+                    return scrollView
+                } else if let foundScrollView = findScrollView(in: subview) {
+                    return foundScrollView
+                }
+            }
+            return nil
+        }
+        
+        guard let scrollView = findScrollView(in: contentView) else { return }
+        
+        let scrollViewFrame = scrollView.frame
+        let scrollViewLocation = scrollView.convert(location, from: nil)
+        
+        // 检查是否需要滚动
+        let scrollThreshold: CGFloat = 20
+        let scrollSpeed: CGFloat = 5
+        
+        if scrollViewLocation.y < scrollThreshold {
+            // 向上滚动
+            scrollView.contentView.scroll(NSPoint(x: 0, y: -scrollSpeed))
+            scrollView.reflectScrolledClipView(scrollView.contentView)
+        } else if scrollViewLocation.y > scrollViewFrame.height - scrollThreshold {
+            // 向下滚动
+            scrollView.contentView.scroll(NSPoint(x: 0, y: scrollSpeed))
+            scrollView.reflectScrolledClipView(scrollView.contentView)
+        }
+    }
+    
+    // 处理鼠标释放
+    private func handleMouseUp(_ event: NSEvent) {
+        isMultiSelectMode = false
+        selectedCheckBoxes.removeAll()
     }
     
     // 切换筛选值
@@ -811,8 +977,8 @@ class HistoryWindowController: NSWindowController {
     private func getColumnValues(columnName: String) -> Set<String> {
         var values: Set<String> = []
         
-        for failure in failures {
-            let value = getCellValue(for: columnName, row: failures.firstIndex(of: failure) ?? 0)
+        for (index, failure) in failures.enumerated() {
+            let value = getCellValue(for: columnName, row: index, useOriginalData: true)
             if !value.isEmpty {
                 values.insert(value)
             }
@@ -1222,7 +1388,7 @@ extension HistoryWindowController: NSTableViewDelegate, NSTableViewDataSource {
         }
         
         // 设置文本内容
-        let cellValue = getCellValue(for: column.identifier.rawValue, row: row)
+        let cellValue = getCellValue(for: column.identifier.rawValue, row: row, useOriginalData: false)
         cell.textField?.stringValue = cellValue
         
         // 直接为单元格添加工具提示
@@ -1245,10 +1411,12 @@ extension HistoryWindowController: NSTableViewDelegate, NSTableViewDataSource {
         return cell
     }
     
-    private func getCellValue(for column: String, row: Int) -> String {
-        guard row < filteredFailures.count else { return "" }
+    private func getCellValue(for column: String, row: Int, useOriginalData: Bool = false) -> String {
+        // 根据参数选择使用原始数据还是过滤后的数据
+        let targetArray = useOriginalData ? failures : filteredFailures
+        guard row < targetArray.count else { return "" }
         
-        let failure = filteredFailures[row]
+        let failure = targetArray[row]
         let components = failure.components(separatedBy: " | ")
         
         switch column {
