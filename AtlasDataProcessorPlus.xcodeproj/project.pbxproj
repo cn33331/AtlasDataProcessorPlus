@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AF9DEF072F76C536009A399B /* HistoryWindowController+Filter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF9DEF032F76C536009A399B /* HistoryWindowController+Filter.swift */; };
+		AF9DEF082F76C536009A399B /* HistoryWindowController+UI.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF9DEF042F76C536009A399B /* HistoryWindowController+UI.swift */; };
+		AF9DEF092F76C536009A399B /* HistoryWindowController+Table.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF9DEF052F76C536009A399B /* HistoryWindowController+Table.swift */; };
+		AF9DEF0A2F76C536009A399B /* HistoryWindowController+Actions.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF9DEF062F76C536009A399B /* HistoryWindowController+Actions.swift */; };
 		AFA138E82F2BA886006538C2 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA138E72F2BA886006538C2 /* AppDelegate.swift */; };
 		AFA138EA2F2BA886006538C2 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA138E92F2BA886006538C2 /* ViewController.swift */; };
 		AFA138EC2F2BA888006538C2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AFA138EB2F2BA888006538C2 /* Assets.xcassets */; };
@@ -47,6 +51,10 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		AF9DEF032F76C536009A399B /* HistoryWindowController+Filter.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "HistoryWindowController+Filter.swift"; sourceTree = "<group>"; };
+		AF9DEF042F76C536009A399B /* HistoryWindowController+UI.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "HistoryWindowController+UI.swift"; sourceTree = "<group>"; };
+		AF9DEF052F76C536009A399B /* HistoryWindowController+Table.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "HistoryWindowController+Table.swift"; sourceTree = "<group>"; };
+		AF9DEF062F76C536009A399B /* HistoryWindowController+Actions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "HistoryWindowController+Actions.swift"; sourceTree = "<group>"; };
 		AFA138E42F2BA886006538C2 /* AtlasDataProcessorPlus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AtlasDataProcessorPlus.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AFA138E72F2BA886006538C2 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		AFA138E92F2BA886006538C2 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
@@ -162,6 +170,10 @@
 		AFA139652F2BAF8A006538C2 /* Controllers */ = {
 			isa = PBXGroup;
 			children = (
+				AF9DEF062F76C536009A399B /* HistoryWindowController+Actions.swift */,
+				AF9DEF032F76C536009A399B /* HistoryWindowController+Filter.swift */,
+				AF9DEF052F76C536009A399B /* HistoryWindowController+Table.swift */,
+				AF9DEF042F76C536009A399B /* HistoryWindowController+UI.swift */,
 				AFA139672F2BAF9C006538C2 /* ChannelViewController.swift */,
 				AFA139662F2BAF9C006538C2 /* MainWindowController.swift */,
 				AFA139682F2BAF9C006538C2 /* SummaryViewController.swift */,
@@ -316,9 +328,13 @@
 				AFA138EA2F2BA886006538C2 /* ViewController.swift in Sources */,
 				AFA138E82F2BA886006538C2 /* AppDelegate.swift in Sources */,
 				AFA1398E2F2BC581006538C2 /* main.swift in Sources */,
+				AF9DEF092F76C536009A399B /* HistoryWindowController+Table.swift in Sources */,
 				AFA1396C2F2BAF9C006538C2 /* ChannelViewController.swift in Sources */,
+				AF9DEF0A2F76C536009A399B /* HistoryWindowController+Actions.swift in Sources */,
 				AFA1396F2F2BAF9C006538C2 /* SummaryViewController.swift in Sources */,
+				AF9DEF072F76C536009A399B /* HistoryWindowController+Filter.swift in Sources */,
 				AFA139922F324D1F006538C2 /* AtlasDataProcessor.swift in Sources */,
+				AF9DEF082F76C536009A399B /* HistoryWindowController+UI.swift in Sources */,
 				AFA139692F2BAF9C006538C2 /* MainWindowController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -504,7 +520,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 11.1;
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.bsd.AtlasDataProcessorPlus;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -534,7 +550,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 11.1;
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.bsd.AtlasDataProcessorPlus;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
