@@ -358,9 +358,222 @@ extension HistoryWindowController {
         NSWorkspace.shared.activateFileViewerSelecting([directoryURL])
     }
     
-
-
-
+    // 删除本组失败记录
+    @objc func deleteGroup(_ sender: NSMenuItem) {
+        guard let data = sender.representedObject as? [String: Int],
+              let groupIndex = data["groupIndex"] else { return }
+        
+        #if DEBUG
+        print("🗑️ deleteGroup 被点击，groupIndex=\(groupIndex)")
+        #endif
+        
+        // 确认删除
+        let alert = NSAlert()
+        alert.messageText = "确认删除"
+        alert.informativeText = "确定要删除这一组失败记录吗？此操作不可恢复。"
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "删除")
+        alert.addButton(withTitle: "取消")
+        
+        alert.beginSheetModal(for: window!) { [weak self] response in
+            guard let self = self else { return }
+            
+            if response == .alertFirstButtonReturn {
+                // 用户确认删除
+                #if DEBUG
+                print("  用户确认删除分组 \(groupIndex)")
+                #endif
+                
+                // 从groupedFailures中删除该分组
+                if groupIndex < self.groupedFailures.count {
+                    self.groupedFailures.remove(at: groupIndex)
+                    
+                    // 更新expandedGroups，移除该分组的展开状态
+                    self.expandedGroups.remove(groupIndex)
+                    
+                    // 调整其他分组的展开状态索引
+                    var newExpandedGroups: Set<Int> = []
+                    for index in self.expandedGroups {
+                        if index > groupIndex {
+                            newExpandedGroups.insert(index - 1)
+                        } else if index < groupIndex {
+                            newExpandedGroups.insert(index)
+                        }
+                    }
+                    self.expandedGroups = newExpandedGroups
+                    
+                    // 重新加载表格数据
+                    self.tableView.reloadData()
+                    
+                    #if DEBUG
+                    print("  分组删除完成，剩余分组数: \(self.groupedFailures.count)")
+                    #endif
+                }
+            } else {
+                #if DEBUG
+                print("  用户取消删除")
+                #endif
+            }
+        }
+    }
+    
+    // 删除本条失败记录
+    @objc func deleteItem(_ sender: NSMenuItem) {
+        guard let data = sender.representedObject as? [String: Int],
+              let groupIndex = data["groupIndex"],
+              let itemIndex = data["itemIndex"] else { return }
+        
+        #if DEBUG
+        print("🗑️ deleteItem 被点击，groupIndex=\(groupIndex), itemIndex=\(itemIndex)")
+        #endif
+        
+        // 确认删除
+        let alert = NSAlert()
+        alert.messageText = "确认删除"
+        alert.informativeText = "确定要删除这一条失败记录吗？此操作不可恢复。"
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "删除")
+        alert.addButton(withTitle: "取消")
+        
+        alert.beginSheetModal(for: window!) { [weak self] response in
+            guard let self = self else { return }
+            
+            if response == .alertFirstButtonReturn {
+                // 用户确认删除
+                #if DEBUG
+                print("  用户确认删除项目 groupIndex=\(groupIndex), itemIndex=\(itemIndex)")
+                #endif
+                
+                // 检查分组和项目索引是否有效
+                if groupIndex < self.groupedFailures.count {
+                    var group = self.groupedFailures[groupIndex]
+                    
+                    if itemIndex < group.items.count {
+                        // 从分组中删除该项目
+                        group.items.remove(at: itemIndex)
+                        
+                        // 如果分组为空，删除整个分组
+                        if group.items.isEmpty {
+                            self.groupedFailures.remove(at: groupIndex)
+                            
+                            // 更新expandedGroups
+                            self.expandedGroups.remove(groupIndex)
+                            var newExpandedGroups: Set<Int> = []
+                            for index in self.expandedGroups {
+                                if index > groupIndex {
+                                    newExpandedGroups.insert(index - 1)
+                                } else if index < groupIndex {
+                                    newExpandedGroups.insert(index)
+                                }
+                            }
+                            self.expandedGroups = newExpandedGroups
+                        } else {
+                            // 更新分组
+                            self.groupedFailures[groupIndex] = group
+                        }
+                        
+                        // 重新加载表格数据
+                        self.tableView.reloadData()
+                        
+                        #if DEBUG
+                        print("  项目删除完成")
+                        #endif
+                    }
+                }
+            } else {
+                #if DEBUG
+                print("  用户取消删除")
+                #endif
+            }
+        }
+    }
+    
+    // 删除全局相同失败用例的记录
+    @objc func deleteGlobalSameFailure(_ sender: NSMenuItem) {
+        guard let data = sender.representedObject as? [String: Int],
+              let groupIndex = data["groupIndex"],
+              let itemIndex = data["itemIndex"] else { return }
+        
+        #if DEBUG
+        print("🗑️ deleteGlobalSameFailure 被点击，groupIndex=\(groupIndex), itemIndex=\(itemIndex)")
+        #endif
+        
+        // 获取当前失败记录的失败用例名称
+        guard groupIndex < groupedFailures.count else { return }
+        let group = groupedFailures[groupIndex]
+        guard itemIndex < group.items.count else { return }
+        let failure = group.items[itemIndex]
+        let components = failure.components(separatedBy: " | ")
+        guard components.count > 1 else { return }
+        let failureCase = components[1]
+        
+        // 确认删除
+        let alert = NSAlert()
+        alert.messageText = "确认删除"
+        alert.informativeText = "确定要删除全局所有包含相同失败用例的记录吗？此操作不可恢复。"
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "删除")
+        alert.addButton(withTitle: "取消")
+        
+        alert.beginSheetModal(for: window!) { [weak self] response in
+            guard let self = self else { return }
+            
+            if response == .alertFirstButtonReturn {
+                // 用户确认删除
+                #if DEBUG
+                print("  用户确认删除全局相同失败用例: \(failureCase)")
+                #endif
+                
+                // 遍历所有分组，删除包含相同失败用例的记录
+                var groupsToRemove: [Int] = []
+                
+                for (currentGroupIndex, var currentGroup) in self.groupedFailures.enumerated() {
+                    // 筛选出不包含相同失败用例的记录
+                    let filteredItems = currentGroup.items.filter { item in
+                        let itemComponents = item.components(separatedBy: " | ")
+                        return itemComponents.count <= 1 || itemComponents[1] != failureCase
+                    }
+                    
+                    if filteredItems.count == 0 {
+                        // 如果分组为空，标记为删除
+                        groupsToRemove.append(currentGroupIndex)
+                    } else if filteredItems.count != currentGroup.items.count {
+                        // 更新分组
+                        currentGroup.items = filteredItems
+                        self.groupedFailures[currentGroupIndex] = currentGroup
+                    }
+                }
+                
+                // 按从后往前的顺序删除分组，避免索引错乱
+                for groupIndexToRemove in groupsToRemove.sorted(by: >) {
+                    self.groupedFailures.remove(at: groupIndexToRemove)
+                    
+                    // 更新expandedGroups
+                    self.expandedGroups.remove(groupIndexToRemove)
+                    var newExpandedGroups: Set<Int> = []
+                    for index in self.expandedGroups {
+                        if index > groupIndexToRemove {
+                            newExpandedGroups.insert(index - 1)
+                        } else if index < groupIndexToRemove {
+                            newExpandedGroups.insert(index)
+                        }
+                    }
+                    self.expandedGroups = newExpandedGroups
+                }
+                
+                // 重新加载表格数据
+                self.tableView.reloadData()
+                
+                #if DEBUG
+                print("  全局相同失败用例删除完成")
+                #endif
+            } else {
+                #if DEBUG
+                print("  用户取消删除")
+                #endif
+            }
+        }
+    }
     
     // MARK: - 静态方法
     static func createAndShow() -> HistoryWindowController {

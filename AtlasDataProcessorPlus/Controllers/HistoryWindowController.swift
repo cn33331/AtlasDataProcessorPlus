@@ -84,7 +84,7 @@ class PressableCheckBox: NSButton {
 // 用于折叠/展开功能的数据结构
 struct GroupedFailure {
     let filePath: String
-    let items: [String] // 存储完整的失败记录字符串
+    var items: [String] // 存储完整的失败记录字符串
 }
 
 // MARK: - 历史数据处理窗口控制器

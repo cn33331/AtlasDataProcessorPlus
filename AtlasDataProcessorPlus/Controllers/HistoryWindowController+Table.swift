@@ -104,7 +104,7 @@ extension HistoryWindowController: NSTableViewDelegate, NSTableViewDataSource {
             
             switch column.identifier.rawValue {
             case "序号":
-                cell.textField?.stringValue = "1"
+                cell.textField?.stringValue = "\(groupIndex + 1)"
             case "测试时间":
                 cell.textField?.stringValue = components.count > 0 ? components[0] : "未知时间"
             case "失败用例":
@@ -339,6 +339,12 @@ extension HistoryWindowController: NSTableViewDelegate, NSTableViewDataSource {
                 toggleDetailsItem.representedObject = ["groupIndex": groupIndex]
                 toggleDetailsItem.target = self
                 menu.addItem(toggleDetailsItem)
+                
+                // 删除本组失败记录选项
+                let deleteGroupItem = NSMenuItem(title: "删除本组失败记录", action: #selector(deleteGroup(_:)), keyEquivalent: "")
+                deleteGroupItem.representedObject = ["groupIndex": groupIndex]
+                deleteGroupItem.target = self
+                menu.addItem(deleteGroupItem)
             } else if itemIndex >= 0 {
                 print("📋 点击了内容行")
                 // 内容行的菜单
@@ -352,6 +358,18 @@ extension HistoryWindowController: NSTableViewDelegate, NSTableViewDataSource {
                 openPathItem.representedObject = ["filePath": filePath]
                 openPathItem.target = self
                 menu.addItem(openPathItem)
+                
+                // 删除本条失败记录选项
+                let deleteItemItem = NSMenuItem(title: "删除本条失败记录", action: #selector(deleteItem(_:)), keyEquivalent: "")
+                deleteItemItem.representedObject = ["groupIndex": groupIndex, "itemIndex": itemIndex]
+                deleteItemItem.target = self
+                menu.addItem(deleteItemItem)
+                
+                // 删除全局相同失败用例的记录选项
+                let deleteGlobalItem = NSMenuItem(title: "删除全局相同失败用例的记录", action: #selector(deleteGlobalSameFailure(_:)), keyEquivalent: "")
+                deleteGlobalItem.representedObject = ["groupIndex": groupIndex, "itemIndex": itemIndex]
+                deleteGlobalItem.target = self
+                menu.addItem(deleteGlobalItem)
             }
         }
         
