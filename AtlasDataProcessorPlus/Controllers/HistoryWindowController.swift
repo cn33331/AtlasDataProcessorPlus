@@ -100,6 +100,20 @@ class HistoryWindowController: NSWindowController {
     // 表格视图
     var tableView: NSTableView!
     
+    // 屏蔽的失败用例列表
+    var blockedFailures: Set<String> = []
+    
+    // 配置文件路径
+    internal var configFilePath: String {
+        let fileManager = FileManager.default
+        guard let appSupportDir = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            return ""
+        }
+        let appDir = appSupportDir.appendingPathComponent("AtlasDataProcessor", isDirectory: true)
+        try? fileManager.createDirectory(at: appDir, withIntermediateDirectories: true)
+        return appDir.appendingPathComponent("blocked_failures.json").path
+    }
+    
     // 操作按钮
     var saveCSVButton: NSButton!
     var saveCSVPlusButton: NSButton!
@@ -194,6 +208,8 @@ class HistoryWindowController: NSWindowController {
             #if DEBUG
             print("🔧 HistoryWindowController: 窗口已存在，立即设置UI")
             #endif
+            // 加载屏蔽的失败用例
+            loadBlockedFailures()
             setupUI()
             setupMouseTracking()
         }

@@ -176,6 +176,13 @@ extension HistoryWindowController {
         collapseAllButton.translatesAutoresizingMaskIntoConstraints = false
         headerStackView.addArrangedSubview(collapseAllButton)
         
+        // 屏蔽fail项按钮
+        let blockFailButton = NSButton(title: "屏蔽fail项", target: self, action: #selector(showBlockFailDialog))
+        blockFailButton.bezelStyle = .rounded
+        blockFailButton.font = NSFont.systemFont(ofSize: 12)
+        blockFailButton.translatesAutoresizingMaskIntoConstraints = false
+        headerStackView.addArrangedSubview(blockFailButton)
+        
         // 滚动视图
         let scrollView = NSScrollView()
         scrollView.hasVerticalScroller = true
@@ -223,9 +230,12 @@ extension HistoryWindowController {
         // 设置列
         let columns = [
             ("序号", 40),
-            ("测试时间", 180),
-            ("失败用例", 500),
-            ("文件路径", 350)
+            ("测试时间", 150),
+            ("失败用例", 300),
+            ("Upper Limit", 80),
+            ("Lower Limit", 80),
+            ("Value", 120),
+            ("文件路径", 250)
         ]
         
         for (title, width) in columns {

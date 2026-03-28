@@ -109,6 +109,12 @@ extension HistoryWindowController: NSTableViewDelegate, NSTableViewDataSource {
                 cell.textField?.stringValue = components.count > 0 ? components[0] : "未知时间"
             case "失败用例":
                 cell.textField?.stringValue = components.count > 1 ? components[1] : "无具体用例"
+            case "Upper Limit":
+                cell.textField?.stringValue = components.count > 3 ? components[3] : ""
+            case "Lower Limit":
+                cell.textField?.stringValue = components.count > 4 ? components[4] : ""
+            case "Value":
+                cell.textField?.stringValue = components.count > 5 ? components[5] : ""
             default:
                 cell.textField?.stringValue = ""
             }
@@ -159,18 +165,23 @@ extension HistoryWindowController: NSTableViewDelegate, NSTableViewDataSource {
         // 设置文本内容
         let group = groupedFailures[groupIndex]
         let failure = group.items[itemIndex]
+        let components = failure.components(separatedBy: " | ")
         
         switch column.identifier.rawValue {
         case "序号":
             cell.textField?.stringValue = "\(itemIndex + 1)"
         case "测试时间":
-            let components = failure.components(separatedBy: " | ")
             cell.textField?.stringValue = components.count > 0 ? components[0] : "未知时间"
         case "失败用例":
-            let components = failure.components(separatedBy: " | ")
             cell.textField?.stringValue = components.count > 1 ? components[1] : "无具体用例"
         case "文件路径":
-            cell.textField?.stringValue = ""
+            cell.textField?.stringValue = components.count > 2 ? components[2] : ""
+        case "Upper Limit":
+            cell.textField?.stringValue = components.count > 3 ? components[3] : ""
+        case "Lower Limit":
+            cell.textField?.stringValue = components.count > 4 ? components[4] : ""
+        case "Value":
+            cell.textField?.stringValue = components.count > 5 ? components[5] : ""
         default:
             cell.textField?.stringValue = ""
         }
@@ -213,6 +224,12 @@ extension HistoryWindowController: NSTableViewDelegate, NSTableViewDataSource {
                 return filePath
             }
             return "未知文件"
+        case "Upper Limit":
+            return components.count > 3 ? components[3] : ""
+        case "Lower Limit":
+            return components.count > 4 ? components[4] : ""
+        case "Value":
+            return components.count > 5 ? components[5] : ""
         default:
             return ""
         }

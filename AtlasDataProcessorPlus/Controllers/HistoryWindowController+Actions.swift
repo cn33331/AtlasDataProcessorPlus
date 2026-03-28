@@ -174,7 +174,7 @@ extension HistoryWindowController {
                     // 初始化筛选数据
                     self.filteredFailures = self.failures
                     
-                    // 对失败记录按文件路径分组
+                    // 对失败记录按文件路径分组（应用屏蔽规则）
                     self.groupFailuresByFilePath()
                     
                     // 重置筛选和排序状态
@@ -259,6 +259,87 @@ extension HistoryWindowController {
         tableView.allowsEmptySelection = false
     }
     
+    // 从配置文件加载屏蔽的失败用例
+    func loadBlockedFailures() {
+        do {
+            if FileManager.default.fileExists(atPath: configFilePath) {
+                let data = try Data(contentsOf: URL(fileURLWithPath: configFilePath))
+                if let blockedArray = try JSONSerialization.jsonObject(with: data) as? [String] {
+                    blockedFailures = Set(blockedArray)
+                    print("📋 从配置文件加载屏蔽的失败用例: \(blockedFailures)")
+                }
+            }
+        } catch {
+            print("❌ 加载屏蔽失败用例失败: \(error)")
+        }
+    }
+    
+    // 保存屏蔽的失败用例到配置文件
+    func saveBlockedFailures() {
+        do {
+            let blockedArray = Array(blockedFailures)
+            let data = try JSONSerialization.data(withJSONObject: blockedArray, options: .prettyPrinted)
+            try data.write(to: URL(fileURLWithPath: configFilePath))
+            print("📋 保存屏蔽的失败用例到配置文件: \(blockedFailures)")
+        } catch {
+            print("❌ 保存屏蔽失败用例失败: \(error)")
+        }
+    }
+    
+    // 显示屏蔽fail项对话框
+    @objc func showBlockFailDialog() {
+        print("👆 屏蔽fail项按钮被点击")
+        
+        // 创建对话框
+        let alert = NSAlert()
+        alert.messageText = "屏蔽失败用例"
+        alert.informativeText = "请输入要屏蔽的失败用例，多个用例请用分号分隔"
+        
+        // 添加多行文本输入框
+        let textView = NSTextView(frame: NSRect(x: 0, y: 0, width: 400, height: 150))
+        textView.string = blockedFailures.joined(separator: "; ")
+        textView.font = NSFont.systemFont(ofSize: 12)
+        textView.isEditable = true
+        textView.isSelectable = true
+        
+        // 创建滚动视图包装文本视图
+        let scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: 400, height: 150))
+        scrollView.documentView = textView
+        scrollView.hasVerticalScroller = true
+        scrollView.borderType = .bezelBorder
+        
+        alert.accessoryView = scrollView
+        
+        // 添加按钮
+        alert.addButton(withTitle: "确定")
+        alert.addButton(withTitle: "取消")
+        
+        // 显示对话框
+        let response = alert.runModal()
+        
+        if response == .alertFirstButtonReturn {
+            // 用户点击了确定
+            var input = ""
+            if let scrollView = alert.accessoryView as? NSScrollView,
+               let textView = scrollView.documentView as? NSTextView {
+                input = textView.string.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            
+            // 解析输入的失败用例
+            blockedFailures = Set(input.components(separatedBy: ";")
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty })
+            
+            print("📋 屏蔽的失败用例: \(blockedFailures)")
+            
+            // 保存到配置文件
+            saveBlockedFailures()
+            
+            // 重新加载数据
+            tableView.reloadData()
+        }
+    }
+    
     // 显示警告框
     func showAlert(title: String, message: String) {
         let alert = NSAlert()
@@ -276,6 +357,13 @@ extension HistoryWindowController {
         // 遍历所有失败记录
         for failure in failures {
             let components = failure.components(separatedBy: " | ")
+            let testCase = components.count > 1 ? components[1] : ""
+            
+            // 跳过被屏蔽的失败用例
+            if !testCase.isEmpty && blockedFailures.contains(testCase) {
+                continue
+            }
+            
             let filePath = components.count > 2 ? components[2] : "未知文件"
             
             // 添加到对应文件路径的数组中

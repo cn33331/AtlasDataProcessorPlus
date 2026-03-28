@@ -358,27 +358,34 @@ class AtlasDataProcessor {
     }
     
     func getFailureSummary() -> [String] {
-        let failInfo = extractFailInfo()
-        
         var result: [String] = []
         
-        for info in failInfo {
-            let time = info["测试时间"] ?? "未知时间"
-            let path = info["文件路径"] ?? "未知文件"
-            let tests = info["失败用例列表"] ?? "无具体用例"
-            
-            // 按分号分割失败用例
-            let testCases = tests.components(separatedBy: ";")
-                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                .filter { !$0.isEmpty }
-            
-            if testCases.isEmpty {
-                // 如果没有具体的失败用例，保留一行
-                result.append("\(time) | \(tests) | \(path)")
-            } else {
-                // 将每个失败用例单独作为一行
-                for testCase in testCases {
-                    result.append("\(time) | \(testCase) | \(path)")
+        // 遍历所有文件结果
+        for fileResult in fileResults {
+            let testStatus = fileResult.infoRow[7]
+            if testStatus == "FAIL" {
+                let time = fileResult.infoRow[9] // EndTime
+                let path = fileResult.filePathRow[0]
+                let failTests = fileResult.infoRow[11]
+                
+                // 按分号分割失败用例
+                let testCases = failTests.components(separatedBy: ";")
+                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { !$0.isEmpty }
+                
+                if testCases.isEmpty {
+                    // 如果没有具体的失败用例，保留一行
+                    result.append("\(time) | 无具体用例 | \(path) | | |")
+                } else {
+                    // 将每个失败用例单独作为一行
+                    for testCase in testCases {
+                        // 获取该失败用例的元数据和值
+                        let upperLimit = fileResult.measureMeta[testCase]?["upper"] ?? ""
+                        let lowerLimit = fileResult.measureMeta[testCase]?["lower"] ?? ""
+                        let value = fileResult.measureDict[testCase] ?? ""
+                        
+                        result.append("\(time) | \(testCase) | \(path) | \(upperLimit) | \(lowerLimit) | \(value)")
+                    }
                 }
             }
         }
