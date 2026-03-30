@@ -60,6 +60,17 @@ func setupApplicationMenu() {
     
     fileMenu.addItem(NSMenuItem.separator())
     
+    // 添加监控工具菜单项
+    let monitoringMenuItem = NSMenuItem(
+        title: "监控工具",
+        action: #selector(AppDelegate.showMonitoringTool(_:)),
+        keyEquivalent: "m"
+    )
+    monitoringMenuItem.target = delegate
+    fileMenu.addItem(monitoringMenuItem)
+    
+    fileMenu.addItem(NSMenuItem.separator())
+    
     // 添加历史数据菜单项
     let historyMenuItem = NSMenuItem(
         title: "历史数据",
@@ -70,9 +81,12 @@ func setupApplicationMenu() {
     fileMenu.addItem(historyMenuItem)
     
     #if DEBUG
+    print("📌 监控工具菜单项已添加")
+    print("   - target: \(delegate)")
+    print("   - action: \(Selector("showMonitoringTool:"))")
     print("📌 历史数据菜单项已添加")
     print("   - target: \(delegate)")
-    print("   - action: \(#selector(AppDelegate.showHistoryWindow(_:)))")
+    print("   - action: \(Selector("showHistoryWindow:"))")
     #endif
     
     fileMenuItem.submenu = fileMenu

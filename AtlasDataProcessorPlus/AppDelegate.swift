@@ -37,6 +37,30 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         #endif
     }
     
+    @objc public func showMonitoringTool(_ sender: Any?) {
+        #if DEBUG
+        print("🔍 AppDelegate: showMonitoringTool 被调用")
+        print("📌 mainWindowController 状态: \(mainWindowController == nil ? "nil" : "已存在")")
+        #endif
+        
+        if mainWindowController == nil {
+            #if DEBUG
+            print("➕ AppDelegate: 创建新的 MainWindowController")
+            #endif
+            mainWindowController = MainWindowController()
+            mainWindowController?.showWindow(sender)
+        } else {
+            #if DEBUG
+            print("🔄 AppDelegate: 显示已存在的 MainWindowController")
+            #endif
+            mainWindowController?.window?.makeKeyAndOrderFront(sender)
+        }
+        
+        #if DEBUG
+        print("✅ AppDelegate: showMonitoringTool 完成")
+        #endif
+    }
+    
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         print("🚀 应用启动开始 - AppDelegate 被调用！")
         
