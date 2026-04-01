@@ -259,84 +259,149 @@ extension HistoryWindowController {
         tableView.allowsEmptySelection = false
     }
     
-    // 从配置文件加载屏蔽的失败用例
+    // 显示当前失败用例筛选面板
+    @objc func showCurrentFailFilter(_ sender: Any) {
+        print("🔄 HistoryWindowController: showCurrentFailFilter() 被调用")
+        
+        // 提取当前所有失败用例（排除默认屏蔽项）并统计出现次数
+        var allFailureCases: Set<String> = []
+        var failureCaseCounts: [String: Int] = [:]
+        
+        for failure in failures {
+            // 失败用例格式: "时间 | 失败用例 | 路径 | Upper Limit | Lower Limit | Value"
+            let parts = failure.components(separatedBy: "|")
+            if parts.count >= 3 {
+                // 第2个部分（索引1）是失败用例名称
+                let failureCase = parts[1].trimmingCharacters(in: .whitespaces)
+                // 排除空值、无具体用例和默认屏蔽项
+                if !failureCase.isEmpty && failureCase != "无具体用例" && !defaultBlockedFailures.contains(failureCase) {
+                    allFailureCases.insert(failureCase)
+                    // 统计出现次数
+                    failureCaseCounts[failureCase, default: 0] += 1
+                }
+            }
+        }
+        
+        print("📋 当前所有失败用例（排除默认屏蔽项）: \(allFailureCases)")
+        print("📋 失败用例出现次数: \(failureCaseCounts)")
+        print("📋 默认屏蔽项: \(defaultBlockedFailures)")
+        
+        // 创建弹出式面板
+        let popover = NSPopover()
+        popover.behavior = .transient
+        popover.animates = true
+        popover.appearance = NSAppearance(named: .aqua)
+        
+        // 创建控制器
+        let filterController = CurrentFailFilterController()
+        filterController.failureCases = Array(allFailureCases)
+        filterController.failureCaseCounts = failureCaseCounts
+        filterController.blockedFailures = sessionBlockedFailures
+        filterController.setPopover(popover)
+        
+        // 设置回调
+        filterController.completionHandler = { [weak self] filteredFailures in
+            guard let self = self else { return }
+            
+            // 更新会话屏蔽列表
+            self.sessionBlockedFailures = filteredFailures
+            
+            print("📋 会话屏蔽的失败用例: \(self.sessionBlockedFailures)")
+            
+            // 重新生成分组数据（应用新的屏蔽设置）
+            self.groupFailuresByFilePath()
+            
+            // 重新加载数据
+            self.tableView.reloadData()
+        }
+        
+        // 设置内容视图
+        popover.contentViewController = filterController
+        
+        // 从按钮位置弹出
+        if let button = sender as? NSButton {
+            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .maxY)
+        } else if let window = self.window {
+            // 如果没有按钮引用，从窗口中心弹出
+            popover.show(relativeTo: window.contentView!.bounds, of: window.contentView!, preferredEdge: .minY)
+        }
+    }
+    
+    // 从配置文件加载默认屏蔽的失败用例
     func loadBlockedFailures() {
         do {
             if FileManager.default.fileExists(atPath: configFilePath) {
                 let data = try Data(contentsOf: URL(fileURLWithPath: configFilePath))
                 if let blockedArray = try JSONSerialization.jsonObject(with: data) as? [String] {
-                    blockedFailures = Set(blockedArray)
-                    print("📋 从配置文件加载屏蔽的失败用例: \(blockedFailures)")
+                    defaultBlockedFailures = Set(blockedArray)
+                    print("📋 从配置文件加载默认屏蔽的失败用例: \(defaultBlockedFailures)")
                 }
             }
         } catch {
-            print("❌ 加载屏蔽失败用例失败: \(error)")
+            print("❌ 加载默认屏蔽失败用例失败: \(error)")
         }
     }
     
-    // 保存屏蔽的失败用例到配置文件
+    // 保存默认屏蔽的失败用例到配置文件
     func saveBlockedFailures() {
         do {
-            let blockedArray = Array(blockedFailures)
+            let blockedArray = Array(defaultBlockedFailures)
             let data = try JSONSerialization.data(withJSONObject: blockedArray, options: .prettyPrinted)
             try data.write(to: URL(fileURLWithPath: configFilePath))
-            print("📋 保存屏蔽的失败用例到配置文件: \(blockedFailures)")
+            print("📋 保存默认屏蔽的失败用例到配置文件: \(defaultBlockedFailures)")
         } catch {
-            print("❌ 保存屏蔽失败用例失败: \(error)")
+            print("❌ 保存默认屏蔽失败用例失败: \(error)")
         }
     }
     
-    // 显示屏蔽fail项对话框
-    @objc func showBlockFailDialog() {
+    // 显示屏蔽fail项弹出式面板
+    @objc func showBlockFailDialog(_ sender: Any?) {
         print("👆 屏蔽fail项按钮被点击")
         
-        // 创建对话框
-        let alert = NSAlert()
-        alert.messageText = "屏蔽失败用例"
-        alert.informativeText = "请输入要屏蔽的失败用例，多个用例请用分号分隔"
+        // 创建弹出式面板
+        let popover = NSPopover()
+        popover.behavior = .transient // 点击外部区域会关闭
+        popover.appearance = NSAppearance(named: .aqua)
         
-        // 添加多行文本输入框
-        let textView = NSTextView(frame: NSRect(x: 0, y: 0, width: 400, height: 150))
-        textView.string = blockedFailures.joined(separator: "; ")
-        textView.font = NSFont.systemFont(ofSize: 12)
-        textView.isEditable = true
-        textView.isSelectable = true
+        // 创建面板控制器
+        let popoverController = BlockFailPopoverController()
         
-        // 创建滚动视图包装文本视图
-        let scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: 400, height: 150))
-        scrollView.documentView = textView
-        scrollView.hasVerticalScroller = true
-        scrollView.borderType = .bezelBorder
+        // 设置初始数据
+        popoverController.blockedFailures = Array(defaultBlockedFailures)
         
-        alert.accessoryView = scrollView
+        // 设置弹出式面板引用
+        popoverController.setPopover(popover)
         
-        // 添加按钮
-        alert.addButton(withTitle: "确定")
-        alert.addButton(withTitle: "取消")
-        
-        // 显示对话框
-        let response = alert.runModal()
-        
-        if response == .alertFirstButtonReturn {
-            // 用户点击了确定
-            var input = ""
-            if let scrollView = alert.accessoryView as? NSScrollView,
-               let textView = scrollView.documentView as? NSTextView {
-                input = textView.string.trimmingCharacters(in: .whitespacesAndNewlines)
+        // 设置回调
+        popoverController.completionHandler = { [weak self] (filteredFailures: [String]?) in
+            guard let self = self else { return }
+            
+            // 如果 filteredFailures 为 nil，表示用户取消操作
+            if let failures = filteredFailures {
+                // 更新默认屏蔽列表
+                self.defaultBlockedFailures = Set(failures)
+                
+                print("📋 默认屏蔽的失败用例: \(self.defaultBlockedFailures)")
+                
+                // 保存到配置文件
+                self.saveBlockedFailures()
+                
+                // 重新加载数据
+                self.tableView.reloadData()
+            } else {
+                print("📋 用户取消操作，不保存更改")
             }
-            
-            // 解析输入的失败用例
-            blockedFailures = Set(input.components(separatedBy: ";")
-                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                .filter { !$0.isEmpty })
-            
-            print("📋 屏蔽的失败用例: \(blockedFailures)")
-            
-            // 保存到配置文件
-            saveBlockedFailures()
-            
-            // 重新加载数据
-            tableView.reloadData()
+        }
+        
+        // 设置弹出式面板的内容视图控制器
+        popover.contentViewController = popoverController
+        
+        // 从按钮位置弹出
+        if let button = sender as? NSButton {
+            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .maxY)
+        } else if let window = self.window {
+            // 如果没有按钮引用，从窗口中心弹出
+            popover.show(relativeTo: window.contentView!.bounds, of: window.contentView!, preferredEdge: .minY)
         }
     }
     
@@ -658,6 +723,62 @@ extension HistoryWindowController {
             } else {
                 #if DEBUG
                 print("  用户取消删除")
+                #endif
+            }
+        }
+    }
+    
+    // 屏蔽全局失败用例
+    @objc func blockGlobalFailure(_ sender: NSMenuItem) {
+        guard let data = sender.representedObject as? [String: Int],
+              let groupIndex = data["groupIndex"],
+              let itemIndex = data["itemIndex"] else { return }
+        
+        #if DEBUG
+        print("🛑 blockGlobalFailure 被点击，groupIndex=\(groupIndex), itemIndex=\(itemIndex)")
+        #endif
+        
+        // 获取当前失败记录的失败用例名称
+        guard groupIndex < groupedFailures.count else { return }
+        let group = groupedFailures[groupIndex]
+        guard itemIndex < group.items.count else { return }
+        let failure = group.items[itemIndex]
+        let components = failure.components(separatedBy: " | ")
+        guard components.count > 1 else { return }
+        let failureCase = components[1]
+        
+        // 确认屏蔽
+        let alert = NSAlert()
+        alert.messageText = "确认屏蔽"
+        alert.informativeText = "确定要屏蔽全局所有包含相同失败用例的记录吗？此操作是临时的，不会保存到默认屏蔽项中。"
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "屏蔽")
+        alert.addButton(withTitle: "取消")
+        
+        alert.beginSheetModal(for: window!) { [weak self] response in
+            guard let self = self else { return }
+            
+            if response == .alertFirstButtonReturn {
+                // 用户确认屏蔽
+                #if DEBUG
+                print("  用户确认屏蔽全局相同失败用例: \(failureCase)")
+                #endif
+                
+                // 添加到会话屏蔽列表（临时屏蔽，不会保存到配置文件）
+                self.sessionBlockedFailures.insert(failureCase)
+                
+                print("📋 会话屏蔽的失败用例: \(self.sessionBlockedFailures)")
+                
+                // 重新分组并加载数据
+                self.groupFailuresByFilePath()
+                self.tableView.reloadData()
+                
+                #if DEBUG
+                print("  全局相同失败用例屏蔽完成")
+                #endif
+            } else {
+                #if DEBUG
+                print("  用户取消屏蔽")
                 #endif
             }
         }

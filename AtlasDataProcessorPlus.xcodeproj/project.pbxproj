@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AF37A47D2F7D6701009B3016 /* BlockFailPopoverController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF37A47C2F7D6701009B3016 /* BlockFailPopoverController.swift */; };
+		AF37A47F2F7D6E07009B3016 /* CurrentFailFilterController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF37A47E2F7D6E07009B3016 /* CurrentFailFilterController.swift */; };
 		AF9DEF072F76C536009A399B /* HistoryWindowController+Filter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF9DEF032F76C536009A399B /* HistoryWindowController+Filter.swift */; };
 		AF9DEF082F76C536009A399B /* HistoryWindowController+UI.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF9DEF042F76C536009A399B /* HistoryWindowController+UI.swift */; };
 		AF9DEF092F76C536009A399B /* HistoryWindowController+Table.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF9DEF052F76C536009A399B /* HistoryWindowController+Table.swift */; };
@@ -51,6 +53,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		AF37A47C2F7D6701009B3016 /* BlockFailPopoverController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BlockFailPopoverController.swift; sourceTree = "<group>"; };
+		AF37A47E2F7D6E07009B3016 /* CurrentFailFilterController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CurrentFailFilterController.swift; sourceTree = "<group>"; };
 		AF9DEF032F76C536009A399B /* HistoryWindowController+Filter.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "HistoryWindowController+Filter.swift"; sourceTree = "<group>"; };
 		AF9DEF042F76C536009A399B /* HistoryWindowController+UI.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "HistoryWindowController+UI.swift"; sourceTree = "<group>"; };
 		AF9DEF052F76C536009A399B /* HistoryWindowController+Table.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "HistoryWindowController+Table.swift"; sourceTree = "<group>"; };
@@ -170,6 +174,8 @@
 		AFA139652F2BAF8A006538C2 /* Controllers */ = {
 			isa = PBXGroup;
 			children = (
+				AF37A47E2F7D6E07009B3016 /* CurrentFailFilterController.swift */,
+				AF37A47C2F7D6701009B3016 /* BlockFailPopoverController.swift */,
 				AF9DEF062F76C536009A399B /* HistoryWindowController+Actions.swift */,
 				AF9DEF032F76C536009A399B /* HistoryWindowController+Filter.swift */,
 				AF9DEF052F76C536009A399B /* HistoryWindowController+Table.swift */,
@@ -323,12 +329,14 @@
 				AFA139742F2BAFB7006538C2 /* DataReaderService.swift in Sources */,
 				AFA1395F2F2BAF75006538C2 /* TestData.swift in Sources */,
 				AFA139902F324459006538C2 /* HistoryWindowController.swift in Sources */,
+				AF37A47F2F7D6E07009B3016 /* CurrentFailFilterController.swift in Sources */,
 				AFA139622F2BAF75006538C2 /* Channel.swift in Sources */,
 				AFA139802F2BB17E006538C2 /* NSVStackLayout.swift in Sources */,
 				AFA138EA2F2BA886006538C2 /* ViewController.swift in Sources */,
 				AFA138E82F2BA886006538C2 /* AppDelegate.swift in Sources */,
 				AFA1398E2F2BC581006538C2 /* main.swift in Sources */,
 				AF9DEF092F76C536009A399B /* HistoryWindowController+Table.swift in Sources */,
+				AF37A47D2F7D6701009B3016 /* BlockFailPopoverController.swift in Sources */,
 				AFA1396C2F2BAF9C006538C2 /* ChannelViewController.swift in Sources */,
 				AF9DEF0A2F76C536009A399B /* HistoryWindowController+Actions.swift in Sources */,
 				AFA1396F2F2BAF9C006538C2 /* SummaryViewController.swift in Sources */,
@@ -520,7 +528,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 11.1;
-				MARKETING_VERSION = 1.5;
+				MARKETING_VERSION = 1.6;
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.bsd.AtlasDataProcessorPlus;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -550,7 +558,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 11.1;
-				MARKETING_VERSION = 1.5;
+				MARKETING_VERSION = 1.6;
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.bsd.AtlasDataProcessorPlus;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

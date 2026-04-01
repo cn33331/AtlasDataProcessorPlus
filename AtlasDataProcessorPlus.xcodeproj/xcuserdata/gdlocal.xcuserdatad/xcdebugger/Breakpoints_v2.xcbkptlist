@@ -16,8 +16,55 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "136"
             endingLineNumber = "136"
-            landmarkName = "windowDidLoad()"
+            landmarkName = "setupMouseTracking()"
             landmarkType = "7">
+            <Locations>
+               <Location
+                  uuid = "27D3D281-60E4-482B-9C03-6BAA58635C1B - eaf242c45feef78e"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "AtlasDataProcessorPlus.HistoryWindowController.handleTableViewLeftClick(__C.NSClickGestureRecognizer) -&gt; ()"
+                  moduleName = "AtlasDataProcessorPlus"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/gdlocal/Desktop/myCode/oc/AtlasDataProcessorPlus/AtlasDataProcessorPlus/Controllers/HistoryWindowController.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "137"
+                  endingLineNumber = "137"
+                  offsetFromSymbolStart = "64">
+               </Location>
+               <Location
+                  uuid = "27D3D281-60E4-482B-9C03-6BAA58635C1B - eaf242c45feef78e"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "AtlasDataProcessorPlus.HistoryWindowController.handleTableViewLeftClick(__C.NSClickGestureRecognizer) -&gt; ()"
+                  moduleName = "AtlasDataProcessorPlus"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/gdlocal/Desktop/myCode/oc/AtlasDataProcessorPlus/AtlasDataProcessorPlus/Controllers/HistoryWindowController.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "137"
+                  endingLineNumber = "137"
+                  offsetFromSymbolStart = "379">
+               </Location>
+               <Location
+                  uuid = "27D3D281-60E4-482B-9C03-6BAA58635C1B - eaf242c45feef7af"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "AtlasDataProcessorPlus.HistoryWindowController.handleTableViewLeftClick(__C.NSClickGestureRecognizer) -&gt; ()"
+                  moduleName = "AtlasDataProcessorPlus"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/gdlocal/Desktop/myCode/oc/AtlasDataProcessorPlus/AtlasDataProcessorPlus/Controllers/HistoryWindowController.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "136"
+                  endingLineNumber = "136"
+                  offsetFromSymbolStart = "143">
+               </Location>
+            </Locations>
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
@@ -32,8 +79,55 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "121"
             endingLineNumber = "121"
-            landmarkName = "HistoryWindowController"
-            landmarkType = "3">
+            landmarkName = "windowDidLoad()"
+            landmarkType = "7">
+            <Locations>
+               <Location
+                  uuid = "92EEC1AB-309B-41CD-AE95-AC0D09955964 - 9dd60c2631508ace"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "AtlasDataProcessorPlus.HistoryWindowController.setupMouseTracking() -&gt; ()"
+                  moduleName = "AtlasDataProcessorPlus"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/gdlocal/Desktop/myCode/oc/AtlasDataProcessorPlus/AtlasDataProcessorPlus/Controllers/HistoryWindowController.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "121"
+                  endingLineNumber = "121"
+                  offsetFromSymbolStart = "80">
+               </Location>
+               <Location
+                  uuid = "92EEC1AB-309B-41CD-AE95-AC0D09955964 - 9dd60c2631508ace"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "AtlasDataProcessorPlus.HistoryWindowController.setupMouseTracking() -&gt; ()"
+                  moduleName = "AtlasDataProcessorPlus"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/gdlocal/Desktop/myCode/oc/AtlasDataProcessorPlus/AtlasDataProcessorPlus/Controllers/HistoryWindowController.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "121"
+                  endingLineNumber = "121"
+                  offsetFromSymbolStart = "196">
+               </Location>
+               <Location
+                  uuid = "92EEC1AB-309B-41CD-AE95-AC0D09955964 - 9dd60c2631508ace"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "AtlasDataProcessorPlus.HistoryWindowController.setupMouseTracking() -&gt; ()"
+                  moduleName = "AtlasDataProcessorPlus"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/gdlocal/Desktop/myCode/oc/AtlasDataProcessorPlus/AtlasDataProcessorPlus/Controllers/HistoryWindowController.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "121"
+                  endingLineNumber = "121"
+                  offsetFromSymbolStart = "87">
+               </Location>
+            </Locations>
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
@@ -50,6 +144,146 @@
             endingLineNumber = "75"
             landmarkName = "setupUI()"
             landmarkType = "7">
+            <Locations>
+               <Location
+                  uuid = "7106B454-3BBF-4929-AB9A-EDD99673BAC1 - aedd68d02f99cd77"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "AtlasDataProcessorPlus.HistoryWindowController.setupUI() -&gt; ()"
+                  moduleName = "AtlasDataProcessorPlus"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/gdlocal/Desktop/myCode/oc/AtlasDataProcessorPlus/AtlasDataProcessorPlus/Controllers/HistoryWindowController+UI.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "79"
+                  endingLineNumber = "79"
+                  offsetFromSymbolStart = "1768">
+               </Location>
+               <Location
+                  uuid = "7106B454-3BBF-4929-AB9A-EDD99673BAC1 - aedd68d02f99cdd8"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "AtlasDataProcessorPlus.HistoryWindowController.setupUI() -&gt; ()"
+                  moduleName = "AtlasDataProcessorPlus"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/gdlocal/Desktop/myCode/oc/AtlasDataProcessorPlus/AtlasDataProcessorPlus/Controllers/HistoryWindowController+UI.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "76"
+                  endingLineNumber = "76"
+                  offsetFromSymbolStart = "3910">
+               </Location>
+            </Locations>
+         </BreakpointContent>
+      </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "39BA7B06-134D-4AF2-99D0-07C4B678AC7C"
+            shouldBeEnabled = "Yes"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "AtlasDataProcessorPlus/Controllers/BlockFailDialogController.swift"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "151"
+            endingLineNumber = "151"
+            landmarkName = "BlockFailDialogController"
+            landmarkType = "3">
+            <Locations>
+               <Location
+                  uuid = "39BA7B06-134D-4AF2-99D0-07C4B678AC7C - eb26ae26a6e4645"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "AtlasDataProcessorPlus.BlockFailDialogController.cancel() -&gt; ()"
+                  moduleName = "AtlasDataProcessorPlus"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/gdlocal/Desktop/myCode/oc/AtlasDataProcessorPlus/AtlasDataProcessorPlus/Controllers/BlockFailDialogController.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "151"
+                  endingLineNumber = "151"
+                  offsetFromSymbolStart = "111">
+               </Location>
+               <Location
+                  uuid = "39BA7B06-134D-4AF2-99D0-07C4B678AC7C - eb26ae26a6e4645"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "AtlasDataProcessorPlus.BlockFailDialogController.cancel() -&gt; ()"
+                  moduleName = "AtlasDataProcessorPlus"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/gdlocal/Desktop/myCode/oc/AtlasDataProcessorPlus/AtlasDataProcessorPlus/Controllers/BlockFailDialogController.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "151"
+                  endingLineNumber = "151"
+                  offsetFromSymbolStart = "70">
+               </Location>
+               <Location
+                  uuid = "39BA7B06-134D-4AF2-99D0-07C4B678AC7C - eb26ae26a6e4645"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "AtlasDataProcessorPlus.BlockFailDialogController.cancel() -&gt; ()"
+                  moduleName = "AtlasDataProcessorPlus"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/gdlocal/Desktop/myCode/oc/AtlasDataProcessorPlus/AtlasDataProcessorPlus/Controllers/BlockFailDialogController.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "151"
+                  endingLineNumber = "151"
+                  offsetFromSymbolStart = "196">
+               </Location>
+               <Location
+                  uuid = "39BA7B06-134D-4AF2-99D0-07C4B678AC7C - eb26ae26a6e4645"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "AtlasDataProcessorPlus.BlockFailDialogController.cancel() -&gt; ()"
+                  moduleName = "AtlasDataProcessorPlus"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/gdlocal/Desktop/myCode/oc/AtlasDataProcessorPlus/AtlasDataProcessorPlus/Controllers/BlockFailDialogController.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "151"
+                  endingLineNumber = "151"
+                  offsetFromSymbolStart = "37">
+               </Location>
+               <Location
+                  uuid = "39BA7B06-134D-4AF2-99D0-07C4B678AC7C - eb26ae26a6e4664"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "AtlasDataProcessorPlus.BlockFailDialogController.cancel() -&gt; ()"
+                  moduleName = "AtlasDataProcessorPlus"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/gdlocal/Desktop/myCode/oc/AtlasDataProcessorPlus/AtlasDataProcessorPlus/Controllers/BlockFailDialogController.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "152"
+                  endingLineNumber = "152"
+                  offsetFromSymbolStart = "206">
+               </Location>
+               <Location
+                  uuid = "39BA7B06-134D-4AF2-99D0-07C4B678AC7C - eb26ae26a6e4664"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "AtlasDataProcessorPlus.BlockFailDialogController.cancel() -&gt; ()"
+                  moduleName = "AtlasDataProcessorPlus"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/gdlocal/Desktop/myCode/oc/AtlasDataProcessorPlus/AtlasDataProcessorPlus/Controllers/BlockFailDialogController.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "152"
+                  endingLineNumber = "152"
+                  offsetFromSymbolStart = "20">
+               </Location>
+            </Locations>
          </BreakpointContent>
       </BreakpointProxy>
    </Breakpoints>

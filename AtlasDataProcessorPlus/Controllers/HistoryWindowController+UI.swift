@@ -176,8 +176,15 @@ extension HistoryWindowController {
         collapseAllButton.translatesAutoresizingMaskIntoConstraints = false
         headerStackView.addArrangedSubview(collapseAllButton)
         
-        // 屏蔽fail项按钮
-        let blockFailButton = NSButton(title: "屏蔽fail项", target: self, action: #selector(showBlockFailDialog))
+        // 当前fail筛选按钮
+        let currentFailFilterButton = NSButton(title: "当前fail筛选", target: self, action: #selector(showCurrentFailFilter(_:)))
+        currentFailFilterButton.bezelStyle = .rounded
+        currentFailFilterButton.font = NSFont.systemFont(ofSize: 12)
+        currentFailFilterButton.translatesAutoresizingMaskIntoConstraints = false
+        headerStackView.addArrangedSubview(currentFailFilterButton)
+        
+        // 默认屏蔽项按钮
+        let blockFailButton = NSButton(title: "默认屏蔽项", target: self, action: #selector(showBlockFailDialog(_:)))
         blockFailButton.bezelStyle = .rounded
         blockFailButton.font = NSFont.systemFont(ofSize: 12)
         blockFailButton.translatesAutoresizingMaskIntoConstraints = false
@@ -207,18 +214,6 @@ extension HistoryWindowController {
         // 使用自定义表头视图
         let customHeaderView = CustomTableHeaderView(frame: NSRect(x: 0, y: 0, width: 1000, height: 30))
         customHeaderView.tableView = tableView
-        customHeaderView.onColumnClick = { [weak self] column, event in
-            guard let self = self else { return }
-            let columnName = column.identifier.rawValue
-            #if DEBUG
-            print("自定义表头回调: \(columnName)")
-            print("传递的事件: \(event)")
-            #endif
-            // 延迟显示菜单，确保事件处理完成
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
-                self.showColumnContextMenu(columnName: columnName, event: event)
-            }
-        }
         tableView.headerView = customHeaderView
         
         #if DEBUG

@@ -183,7 +183,7 @@ class NSVStackLayout: NSView {
     override func layout() {
         super.layout()
         // 确保视图层级正确
-        for (index, view) in arrangedSubviews.enumerated() {
+        for (_, view) in arrangedSubviews.enumerated() {
             // 保持正确的 z 轴顺序
             if view.superview != self {
                 self.addSubview(view)

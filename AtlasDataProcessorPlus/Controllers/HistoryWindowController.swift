@@ -10,44 +10,10 @@
 import Cocoa
 
 // MARK: - 自定义表头视图
-// 用于处理表头点击事件，显示筛选和排序菜单
+// 用于处理表头点击事件
 class CustomTableHeaderView: NSTableHeaderView {
-    var onColumnClick: ((NSTableColumn, NSEvent) -> Void)?
-    
     override func mouseDown(with event: NSEvent) {
         super.mouseDown(with: event)
-        
-        #if DEBUG
-        print("CustomTableHeaderView鼠标点击: \(event)")
-        print("事件位置: \(event.locationInWindow)")
-        print("表头边界: \(bounds)")
-        #endif
-        
-        // 确定点击了哪一列
-        let point = convert(event.locationInWindow, from: nil)
-        #if DEBUG
-        print("转换后的点: \(point)")
-        #endif
-        var clickedColumn: NSTableColumn?
-        var currentX: CGFloat = 0
-        
-        if let tableView = tableView {
-            for column in tableView.tableColumns {
-                currentX += column.width
-                if point.x <= currentX {
-                    clickedColumn = column
-                    break
-                }
-            }
-            
-            if let column = clickedColumn {
-                #if DEBUG
-                print("点击了列: \(column.identifier.rawValue)")
-                #endif
-                // 传递事件对象，以便在菜单显示时使用
-                onColumnClick?(column, event)
-            }
-        }
     }
 }
 
@@ -100,8 +66,16 @@ class HistoryWindowController: NSWindowController {
     // 表格视图
     var tableView: NSTableView!
     
-    // 屏蔽的失败用例列表
-    var blockedFailures: Set<String> = []
+    // 默认屏蔽的失败用例列表（通过默认屏蔽项按钮添加）
+    var defaultBlockedFailures: Set<String> = []
+    
+    // 会话屏蔽的失败用例列表（通过右键菜单临时屏蔽）
+    var sessionBlockedFailures: Set<String> = []
+    
+    // 合并的屏蔽列表（用于实际过滤）
+    var blockedFailures: Set<String> {
+        return defaultBlockedFailures.union(sessionBlockedFailures)
+    }
     
     // 配置文件路径
     internal var configFilePath: String {
@@ -130,6 +104,9 @@ class HistoryWindowController: NSWindowController {
     // MARK: - 折叠功能相关
     var groupedFailures: [GroupedFailure] = []
     var expandedGroups: Set<Int> = []
+    
+    // MARK: - 弹出式面板引用
+    internal var blockFailPopoverController: BlockFailPopoverController?
     
     // MARK: - 生命周期
     override func windowDidLoad() {

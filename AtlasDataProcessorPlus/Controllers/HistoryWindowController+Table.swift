@@ -295,17 +295,7 @@ extension HistoryWindowController: NSTableViewDelegate, NSTableViewDataSource {
         return 40
     }
     
-    // 处理列标题点击事件
-    func tableViewColumnDidClick(_ tableView: NSTableView, column: NSTableColumn) {
-        #if DEBUG
-        print("tableViewColumnDidClick被调用: \(column.identifier.rawValue)")
-        #endif
-        let columnName = column.identifier.rawValue
-        // 使用当前事件
-        if let event = NSApplication.shared.currentEvent {
-            showColumnContextMenu(columnName: columnName, event: event)
-        }
-    }
+
     
     // 右键菜单
     func tableView(_ tableView: NSTableView, menuFor event: NSEvent) -> NSMenu? {
@@ -376,17 +366,11 @@ extension HistoryWindowController: NSTableViewDelegate, NSTableViewDataSource {
                 openPathItem.target = self
                 menu.addItem(openPathItem)
                 
-                // 删除本条失败记录选项
-                let deleteItemItem = NSMenuItem(title: "删除本条失败记录", action: #selector(deleteItem(_:)), keyEquivalent: "")
-                deleteItemItem.representedObject = ["groupIndex": groupIndex, "itemIndex": itemIndex]
-                deleteItemItem.target = self
-                menu.addItem(deleteItemItem)
-                
-                // 删除全局相同失败用例的记录选项
-                let deleteGlobalItem = NSMenuItem(title: "删除全局相同失败用例的记录", action: #selector(deleteGlobalSameFailure(_:)), keyEquivalent: "")
-                deleteGlobalItem.representedObject = ["groupIndex": groupIndex, "itemIndex": itemIndex]
-                deleteGlobalItem.target = self
-                menu.addItem(deleteGlobalItem)
+                // 屏蔽全局失败用例选项
+                let blockGlobalItem = NSMenuItem(title: "屏蔽全局失败用例", action: #selector(blockGlobalFailure(_:)), keyEquivalent: "")
+                blockGlobalItem.representedObject = ["groupIndex": groupIndex, "itemIndex": itemIndex]
+                blockGlobalItem.target = self
+                menu.addItem(blockGlobalItem)
             }
         }
         
