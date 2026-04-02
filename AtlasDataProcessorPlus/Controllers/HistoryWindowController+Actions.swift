@@ -169,7 +169,10 @@ extension HistoryWindowController {
                     
                     // 获取统计信息
                     self.statistics = processor.getStatistics()
-                    self.failures = processor.getFailureSummary()
+                    // 从表格配置中获取 SN 和通道号的列名
+                    let snColumnName = self.tableConfig["sn"] ?? ""
+                    let channelColumnName = self.tableConfig["channel"] ?? ""
+                    self.failures = processor.getFailureSummary(snColumnName: snColumnName, channelColumnName: channelColumnName)
                     
                     // 初始化筛选数据
                     self.filteredFailures = self.failures
@@ -266,9 +269,10 @@ extension HistoryWindowController {
         // 提取当前所有失败用例（排除默认屏蔽项）并统计出现次数
         var allFailureCases: Set<String> = []
         var failureCaseCounts: [String: Int] = [:]
+        var channelToFailures: [String: [String]] = [:]
         
         for failure in failures {
-            // 失败用例格式: "时间 | 失败用例 | 路径 | Upper Limit | Lower Limit | Value"
+            // 失败用例格式: "时间 | 失败用例 | 路径 | Upper Limit | Lower Limit | Value | SN | 通道号"
             let parts = failure.components(separatedBy: "|")
             if parts.count >= 3 {
                 // 第2个部分（索引1）是失败用例名称
@@ -278,6 +282,14 @@ extension HistoryWindowController {
                     allFailureCases.insert(failureCase)
                     // 统计出现次数
                     failureCaseCounts[failureCase, default: 0] += 1
+                    
+                    // 提取通道号
+                    if parts.count >= 8 {
+                        let channel = parts[7].trimmingCharacters(in: .whitespaces)
+                        if !channel.isEmpty {
+                            channelToFailures[channel, default: []].append(failureCase)
+                        }
+                    }
                 }
             }
         }
@@ -294,8 +306,10 @@ extension HistoryWindowController {
         
         // 创建控制器
         let filterController = CurrentFailFilterController()
-        filterController.failureCases = Array(allFailureCases)
+        // 按照失败次数降序排列
+        filterController.failureCases = Array(allFailureCases).sorted { failureCaseCounts[$0] ?? 0 > failureCaseCounts[$1] ?? 0 }
         filterController.failureCaseCounts = failureCaseCounts
+        filterController.channelToFailures = channelToFailures
         filterController.blockedFailures = sessionBlockedFailures
         filterController.setPopover(popover)
         
@@ -324,6 +338,77 @@ extension HistoryWindowController {
         } else if let window = self.window {
             // 如果没有按钮引用，从窗口中心弹出
             popover.show(relativeTo: window.contentView!.bounds, of: window.contentView!, preferredEdge: .minY)
+        }
+    }
+    
+    // 显示表格配置对话框
+    @objc func showTableConfigDialog(_ sender: Any) {
+        print("🔄 HistoryWindowController: showTableConfigDialog() 被调用")
+        
+        // 加载表格配置
+        loadTableConfig()
+        
+        // 创建弹出式面板
+        let popover = NSPopover()
+        popover.behavior = .transient
+        popover.animates = true
+        popover.appearance = NSAppearance(named: .aqua)
+        
+        // 创建控制器
+        let configController = TableConfigPopoverController()
+        configController.sn = tableConfig["sn"] ?? "PrimaryIdentity"
+        configController.channel = tableConfig["channel"] ?? ""
+        configController.setPopover(popover)
+        
+        // 设置回调
+        configController.completionHandler = { [weak self] (sn, channel) in
+            guard let self = self else { return }
+            
+            // 更新表格配置
+            self.tableConfig["sn"] = sn
+            self.tableConfig["channel"] = channel
+            
+            print("📋 表格配置: \(self.tableConfig)")
+            
+            // 保存到配置文件
+            self.saveTableConfig()
+        }
+        
+        // 设置内容视图
+        popover.contentViewController = configController
+        
+        // 从按钮位置弹出
+        if let button = sender as? NSButton {
+            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .maxY)
+        } else if let window = self.window {
+            // 如果没有按钮引用，从窗口中心弹出
+            popover.show(relativeTo: window.contentView!.bounds, of: window.contentView!, preferredEdge: .minY)
+        }
+    }
+    
+    // 从配置文件加载表格配置
+    func loadTableConfig() {
+        do {
+            if FileManager.default.fileExists(atPath: tableConfigFilePath) {
+                let data = try Data(contentsOf: URL(fileURLWithPath: tableConfigFilePath))
+                if let config = try JSONSerialization.jsonObject(with: data) as? [String: String] {
+                    tableConfig = config
+                    print("📋 从配置文件加载表格配置: \(tableConfig)")
+                }
+            }
+        } catch {
+            print("❌ 加载表格配置失败: \(error)")
+        }
+    }
+    
+    // 保存表格配置到配置文件
+    func saveTableConfig() {
+        do {
+            let data = try JSONSerialization.data(withJSONObject: tableConfig, options: .prettyPrinted)
+            try data.write(to: URL(fileURLWithPath: tableConfigFilePath))
+            print("📋 保存表格配置到配置文件: \(tableConfig)")
+        } catch {
+            print("❌ 保存表格配置失败: \(error)")
         }
     }
     

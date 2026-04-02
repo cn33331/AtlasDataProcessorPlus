@@ -14,6 +14,9 @@ class CurrentFailFilterController: NSViewController {
     // 失败用例出现次数统计
     var failureCaseCounts: [String: Int] = [:]
     
+    // 通道号到失败用例的映射
+    var channelToFailures: [String: [String]] = [:]
+    
     // 已屏蔽的失败用例集合
     var blockedFailures: Set<String> = []
     
@@ -98,16 +101,23 @@ class CurrentFailFilterController: NSViewController {
         selectAllButton.translatesAutoresizingMaskIntoConstraints = false
         buttonContainer.addSubview(selectAllButton)
         
+        // 导出CSV按钮
+        let exportCSVButton = NSButton(title: "导出CSV", target: self, action: #selector(exportCSV))
+        exportCSVButton.bezelStyle = NSButton.BezelStyle.rounded
+        exportCSVButton.font = NSFont.systemFont(ofSize: 12)
+        exportCSVButton.translatesAutoresizingMaskIntoConstraints = false
+        buttonContainer.addSubview(exportCSVButton)
+        
         // 取消按钮
         let cancelButton = NSButton(title: "取消", target: self, action: #selector(cancel))
-        cancelButton.bezelStyle = .rounded
+        cancelButton.bezelStyle = NSButton.BezelStyle.rounded
         cancelButton.font = NSFont.systemFont(ofSize: 12)
         cancelButton.translatesAutoresizingMaskIntoConstraints = false
         buttonContainer.addSubview(cancelButton)
         
         // 确定按钮
         let okButton = NSButton(title: "确定", target: self, action: #selector(ok))
-        okButton.bezelStyle = .rounded
+        okButton.bezelStyle = NSButton.BezelStyle.rounded
         okButton.font = NSFont.systemFont(ofSize: 12)
         okButton.translatesAutoresizingMaskIntoConstraints = false
         buttonContainer.addSubview(okButton)
@@ -139,6 +149,10 @@ class CurrentFailFilterController: NSViewController {
             selectAllButton.leadingAnchor.constraint(equalTo: buttonContainer.leadingAnchor),
             selectAllButton.centerYAnchor.constraint(equalTo: buttonContainer.centerYAnchor),
             selectAllButton.widthAnchor.constraint(equalToConstant: 80),
+            
+            exportCSVButton.leadingAnchor.constraint(equalTo: selectAllButton.trailingAnchor, constant: 10),
+            exportCSVButton.centerYAnchor.constraint(equalTo: buttonContainer.centerYAnchor),
+            exportCSVButton.widthAnchor.constraint(equalToConstant: 80),
             
             cancelButton.trailingAnchor.constraint(equalTo: buttonContainer.trailingAnchor, constant: -80),
             cancelButton.centerYAnchor.constraint(equalTo: buttonContainer.centerYAnchor),
@@ -180,6 +194,60 @@ class CurrentFailFilterController: NSViewController {
         
         // 关闭弹出式面板
         popover?.close()
+    }
+    
+    @objc private func exportCSV() {
+        print("🔄 CurrentFailFilterController: exportCSV() 被调用")
+        
+        // 收集所有通道号
+        var channels = Set<String>()
+        for (channel, _) in channelToFailures {
+            channels.insert(channel)
+        }
+        // 按通道号排序
+        let sortedChannels = channels.sorted()
+        
+        // 收集所有失败用例（已经按失败次数降序排列）
+        let sortedFailures = failureCases
+        
+        // 生成CSV内容
+        var csvContent = "失败用例,总次数"
+        for channel in sortedChannels {
+            csvContent += ",通道 \(channel)"
+        }
+        csvContent += "\n"
+        
+        // 为每个失败用例生成一行
+        for failureCase in sortedFailures {
+            let totalCount = failureCaseCounts[failureCase] ?? 0
+            var row = "\"\(failureCase)\",\(totalCount)"
+            
+            // 统计每个通道的失败次数
+            for channel in sortedChannels {
+                let channelFailures = channelToFailures[channel] ?? []
+                let count = channelFailures.filter { $0 == failureCase }.count
+                row += ",\(count)"
+            }
+            
+            csvContent += row + "\n"
+        }
+        
+        // 保存到文件
+        let savePanel = NSSavePanel()
+        savePanel.title = "导出CSV文件"
+        savePanel.nameFieldStringValue = "failures_by_channel.csv"
+        savePanel.allowedFileTypes = ["csv"]
+        
+        savePanel.begin { (result) in
+            if result == .OK, let url = savePanel.url {
+                do {
+                    try csvContent.write(to: url, atomically: true, encoding: .utf8)
+                    print("✅ 导出CSV成功: \(url.path)")
+                } catch {
+                    print("❌ 导出CSV失败: \(error)")
+                }
+            }
+        }
     }
     
     deinit {

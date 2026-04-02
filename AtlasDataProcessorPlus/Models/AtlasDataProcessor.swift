@@ -357,8 +357,20 @@ class AtlasDataProcessor {
         ]
     }
     
-    func getFailureSummary() -> [String] {
+    func getFailureSummary(snColumnName: String = "", channelColumnName: String = "") -> [String] {
         var result: [String] = []
+        
+        // 固定的标题行（与 infoRow 对应）
+        let headerRow = [
+            "site", "Product", "SerialNumber", "Special Build Name",
+            "Special Build Description", "Unit Number", "Station ID",
+            "Test Pass/Fail Status", "StartTime", "EndTime", "Version",
+            "List of Failing Tests"
+        ]
+        
+        // 查找 SN 和通道号列的索引
+        let snIndex = headerRow.firstIndex(of: snColumnName) ?? -1
+        let channelIndex = headerRow.firstIndex(of: channelColumnName) ?? -1
         
         // 遍历所有文件结果
         for fileResult in fileResults {
@@ -368,6 +380,55 @@ class AtlasDataProcessor {
                 let path = fileResult.filePathRow[0]
                 let failTests = fileResult.infoRow[11]
                 
+                // 从 infoRow 中获取 SN 和通道号
+                var sn = (snIndex >= 0 && snIndex < fileResult.infoRow.count) ? fileResult.infoRow[snIndex] : ""
+                var channel = (channelIndex >= 0 && channelIndex < fileResult.infoRow.count) ? fileResult.infoRow[channelIndex] : ""
+                
+                #if DEBUG
+                // 打印 debug 信息
+                print("🔍 getFailureSummary: snColumnName=\(snColumnName), channelColumnName=\(channelColumnName)")
+                // 打印从 infoRow 获取的结果
+                print("📋 从 infoRow 获取: sn=\(sn), channel=\(channel)")
+                #endif
+                
+                // 如果 infoRow 中没有，尝试从不固定列（属性和测量）中获取
+                if sn.isEmpty {
+                    // 从属性字典中获取 SN
+                    if let snValue = fileResult.attrDict[snColumnName] {
+                        sn = snValue
+                        #if DEBUG
+                        print("📋 从 attrDict 获取 SN: \(sn)")
+                        #endif
+                    } else if let snValue = fileResult.measureDict[snColumnName] {
+                        // 从测量字典中获取 SN
+                        sn = snValue
+                        #if DEBUG
+                        print("📋 从 measureDict 获取 SN: \(sn)")
+                        #endif
+                    }
+                }
+                
+                if channel.isEmpty {
+                    // 从属性字典中获取通道号
+                    if let channelValue = fileResult.attrDict[channelColumnName] {
+                        channel = channelValue
+                        #if DEBUG
+                        print("📋 从 attrDict 获取通道号: \(channel)")
+                        #endif
+                    } else if let channelValue = fileResult.measureDict[channelColumnName] {
+                        // 从测量字典中获取通道号
+                        channel = channelValue
+                        #if DEBUG
+                        print("📋 从 measureDict 获取通道号: \(channel)")
+                        #endif
+                    }
+                }
+                
+                #if DEBUG
+                // 打印最终结果
+                print("✅ 最终获取: sn=\(sn), channel=\(channel)")
+                #endif
+                
                 // 按分号分割失败用例
                 let testCases = failTests.components(separatedBy: ";")
                     .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -375,7 +436,7 @@ class AtlasDataProcessor {
                 
                 if testCases.isEmpty {
                     // 如果没有具体的失败用例，保留一行
-                    result.append("\(time) | 无具体用例 | \(path) | | |")
+                    result.append("\(time) | 无具体用例 | \(path) | | | | \(sn) | \(channel)")
                 } else {
                     // 将每个失败用例单独作为一行
                     for testCase in testCases {
@@ -384,7 +445,7 @@ class AtlasDataProcessor {
                         let lowerLimit = fileResult.measureMeta[testCase]?["lower"] ?? ""
                         let value = fileResult.measureDict[testCase] ?? ""
                         
-                        result.append("\(time) | \(testCase) | \(path) | \(upperLimit) | \(lowerLimit) | \(value)")
+                        result.append("\(time) | \(testCase) | \(path) | \(upperLimit) | \(lowerLimit) | \(value) | \(sn) | \(channel)")
                     }
                 }
             }
@@ -393,9 +454,22 @@ class AtlasDataProcessor {
         return result
     }
     
+    // 从文件路径中提取指定键的值
+    private func extractValueFromFilePath(_ filePath: String, key: String) -> String {
+        // 示例文件路径格式：.../Key=Value/...
+        let pattern = "\\b\(key)\\s*=\\s*([^/]+)"
+        if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+           let match = regex.firstMatch(in: filePath, options: [], range: NSRange(location: 0, length: filePath.utf16.count)) {
+            if let valueRange = Range(match.range(at: 1), in: filePath) {
+                return String(filePath[valueRange])
+            }
+        }
+        return ""
+    }
+    
     func exportToJSON(outputDir: String) -> String? {
         let stats = getStatistics()
-        let failSummary = getFailureSummary()
+        let failSummary = getFailureSummary(snColumnName: "", channelColumnName: "")
         
         let exportData: [String: Any] = [
             "metadata": stats,
@@ -923,7 +997,7 @@ extension AtlasDataProcessor {
                     if success {
                         self?.statusMessage = message ?? "处理完成"
                         self?.statistics = self?.processor.getStatistics() ?? [:]
-                        self?.failures = self?.processor.getFailureSummary() ?? []
+                        self?.failures = self?.processor.getFailureSummary(snColumnName: "", channelColumnName: "") ?? []
                     } else {
                         self?.statusMessage = error?.localizedDescription ?? "处理失败"
                     }

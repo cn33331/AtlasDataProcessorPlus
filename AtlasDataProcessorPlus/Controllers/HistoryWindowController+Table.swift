@@ -81,13 +81,16 @@ extension HistoryWindowController: NSTableViewDelegate, NSTableViewDataSource {
             cell.addSubview(textField)
             cell.textField = textField
             
-            // 布局约束
+            // 布局约束 - 使用灵活的约束，避免冲突
             NSLayoutConstraint.activate([
-                textField.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 8),
-                textField.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -8),
+                textField.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 4),
                 textField.topAnchor.constraint(equalTo: cell.topAnchor, constant: 4),
                 textField.bottomAnchor.constraint(equalTo: cell.bottomAnchor, constant: -4)
             ])
+            
+            // 设置内容拥抱和压缩阻力优先级
+            textField.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+            textField.setContentHuggingPriority(.defaultLow, for: .horizontal)
         }
         
         // 设置文本内容
@@ -115,6 +118,10 @@ extension HistoryWindowController: NSTableViewDelegate, NSTableViewDataSource {
                 cell.textField?.stringValue = components.count > 4 ? components[4] : ""
             case "Value":
                 cell.textField?.stringValue = components.count > 5 ? components[5] : ""
+            case "SN":
+                cell.textField?.stringValue = components.count > 6 ? components[6] : ""
+            case "通道号":
+                cell.textField?.stringValue = components.count > 7 ? components[7] : ""
             default:
                 cell.textField?.stringValue = ""
             }
@@ -182,6 +189,12 @@ extension HistoryWindowController: NSTableViewDelegate, NSTableViewDataSource {
             cell.textField?.stringValue = components.count > 4 ? components[4] : ""
         case "Value":
             cell.textField?.stringValue = components.count > 5 ? components[5] : ""
+        case "SN":
+            // 从数据中提取 SN 信息
+            cell.textField?.stringValue = components.count > 6 ? components[6] : ""
+        case "通道号":
+            // 从数据中提取通道号信息
+            cell.textField?.stringValue = components.count > 7 ? components[7] : ""
         default:
             cell.textField?.stringValue = ""
         }

@@ -77,6 +77,20 @@ class HistoryWindowController: NSWindowController {
         return defaultBlockedFailures.union(sessionBlockedFailures)
     }
     
+    // 表格配置信息
+    var tableConfig: [String: String] = [
+        "sn": "PrimaryIdentity",
+        "channel": "Fixture Channel ID"
+    ]
+    
+    // 表格配置文件路径
+    var tableConfigFilePath: String {
+        let appSupportDir = NSSearchPathForDirectoriesInDomains(.applicationSupportDirectory, .userDomainMask, true)[0]
+        let configDir = appSupportDir + "/AtlasDataProcessor"
+        try? FileManager.default.createDirectory(atPath: configDir, withIntermediateDirectories: true, attributes: nil)
+        return configDir + "/table_config.json"
+    }
+    
     // 配置文件路径
     internal var configFilePath: String {
         let fileManager = FileManager.default

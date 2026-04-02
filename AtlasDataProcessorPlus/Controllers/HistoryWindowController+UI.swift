@@ -183,6 +183,13 @@ extension HistoryWindowController {
         currentFailFilterButton.translatesAutoresizingMaskIntoConstraints = false
         headerStackView.addArrangedSubview(currentFailFilterButton)
         
+        // 表格配置按钮
+        let tableConfigButton = NSButton(title: "表格配置", target: self, action: #selector(showTableConfigDialog(_:)))
+        tableConfigButton.bezelStyle = .rounded
+        tableConfigButton.font = NSFont.systemFont(ofSize: 12)
+        tableConfigButton.translatesAutoresizingMaskIntoConstraints = false
+        headerStackView.addArrangedSubview(tableConfigButton)
+        
         // 默认屏蔽项按钮
         let blockFailButton = NSButton(title: "默认屏蔽项", target: self, action: #selector(showBlockFailDialog(_:)))
         blockFailButton.bezelStyle = .rounded
@@ -230,7 +237,9 @@ extension HistoryWindowController {
             ("Upper Limit", 80),
             ("Lower Limit", 80),
             ("Value", 120),
-            ("文件路径", 250)
+            ("文件路径", 200),
+            ("SN", 150),
+            ("通道号", 80)
         ]
         
         for (title, width) in columns {
