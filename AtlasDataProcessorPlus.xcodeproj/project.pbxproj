@@ -10,7 +10,6 @@
 		AF37A47D2F7D6701009B3016 /* BlockFailPopoverController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF37A47C2F7D6701009B3016 /* BlockFailPopoverController.swift */; };
 		AF37A47F2F7D6E07009B3016 /* CurrentFailFilterController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF37A47E2F7D6E07009B3016 /* CurrentFailFilterController.swift */; };
 		AF37A4812F7E99EA009B3016 /* TableConfigPopoverController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF37A4802F7E99EA009B3016 /* TableConfigPopoverController.swift */; };
-		AF9DEF072F76C536009A399B /* HistoryWindowController+Filter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF9DEF032F76C536009A399B /* HistoryWindowController+Filter.swift */; };
 		AF9DEF082F76C536009A399B /* HistoryWindowController+UI.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF9DEF042F76C536009A399B /* HistoryWindowController+UI.swift */; };
 		AF9DEF092F76C536009A399B /* HistoryWindowController+Table.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF9DEF052F76C536009A399B /* HistoryWindowController+Table.swift */; };
 		AF9DEF0A2F76C536009A399B /* HistoryWindowController+Actions.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF9DEF062F76C536009A399B /* HistoryWindowController+Actions.swift */; };
@@ -57,7 +56,6 @@
 		AF37A47C2F7D6701009B3016 /* BlockFailPopoverController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BlockFailPopoverController.swift; sourceTree = "<group>"; };
 		AF37A47E2F7D6E07009B3016 /* CurrentFailFilterController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CurrentFailFilterController.swift; sourceTree = "<group>"; };
 		AF37A4802F7E99EA009B3016 /* TableConfigPopoverController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TableConfigPopoverController.swift; sourceTree = "<group>"; };
-		AF9DEF032F76C536009A399B /* HistoryWindowController+Filter.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "HistoryWindowController+Filter.swift"; sourceTree = "<group>"; };
 		AF9DEF042F76C536009A399B /* HistoryWindowController+UI.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "HistoryWindowController+UI.swift"; sourceTree = "<group>"; };
 		AF9DEF052F76C536009A399B /* HistoryWindowController+Table.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "HistoryWindowController+Table.swift"; sourceTree = "<group>"; };
 		AF9DEF062F76C536009A399B /* HistoryWindowController+Actions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "HistoryWindowController+Actions.swift"; sourceTree = "<group>"; };
@@ -180,7 +178,6 @@
 				AF37A47E2F7D6E07009B3016 /* CurrentFailFilterController.swift */,
 				AF37A47C2F7D6701009B3016 /* BlockFailPopoverController.swift */,
 				AF9DEF062F76C536009A399B /* HistoryWindowController+Actions.swift */,
-				AF9DEF032F76C536009A399B /* HistoryWindowController+Filter.swift */,
 				AF9DEF052F76C536009A399B /* HistoryWindowController+Table.swift */,
 				AF9DEF042F76C536009A399B /* HistoryWindowController+UI.swift */,
 				AFA139672F2BAF9C006538C2 /* ChannelViewController.swift */,
@@ -344,7 +341,6 @@
 				AFA1396C2F2BAF9C006538C2 /* ChannelViewController.swift in Sources */,
 				AF9DEF0A2F76C536009A399B /* HistoryWindowController+Actions.swift in Sources */,
 				AFA1396F2F2BAF9C006538C2 /* SummaryViewController.swift in Sources */,
-				AF9DEF072F76C536009A399B /* HistoryWindowController+Filter.swift in Sources */,
 				AFA139922F324D1F006538C2 /* AtlasDataProcessor.swift in Sources */,
 				AF9DEF082F76C536009A399B /* HistoryWindowController+UI.swift in Sources */,
 				AFA139692F2BAF9C006538C2 /* MainWindowController.swift in Sources */,
@@ -532,7 +528,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 11.1;
-				MARKETING_VERSION = 1.7;
+				MARKETING_VERSION = 1.8;
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.bsd.AtlasDataProcessorPlus;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -562,7 +558,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 11.1;
-				MARKETING_VERSION = 1.7;
+				MARKETING_VERSION = 1.8;
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.bsd.AtlasDataProcessorPlus;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

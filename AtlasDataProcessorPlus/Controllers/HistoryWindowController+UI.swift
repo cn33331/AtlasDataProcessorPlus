@@ -262,9 +262,6 @@ extension HistoryWindowController {
             container.heightAnchor.constraint(greaterThanOrEqualToConstant: 300)
         ])
         
-        // 初始化筛选数据
-        filteredFailures = failures
-        
         return container
     }
     
@@ -279,6 +276,12 @@ extension HistoryWindowController {
         stack.distribution = .fillEqually
         stack.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(stack)
+        
+        // 保存 Fail 标题行按钮
+        saveFailHeadersButton = NSButton(title: "保存 Fail 标题行", target: self, action: #selector(saveFailHeadersButtonClicked))
+        saveFailHeadersButton.bezelStyle = .rounded
+        saveFailHeadersButton.isEnabled = false
+        stack.addArrangedSubview(saveFailHeadersButton)
         
         // 保存 CSV 按钮
         saveCSVButton = NSButton(title: "保存 CSV", target: self, action: #selector(saveCSVButtonClicked))

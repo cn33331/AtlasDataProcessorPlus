@@ -68,15 +68,19 @@ extension HistoryWindowController: NSTableViewDelegate, NSTableViewDataSource {
             cell = NSTableCellView()
             cell.identifier = cellIdentifier
             
-            // 创建文本标签
+            // 创建文本标签 - 支持多行显示
             let textField = NSTextField()
             textField.isEditable = false
-            textField.isSelectable = false
+            textField.isSelectable = true
             textField.isBezeled = false
             textField.drawsBackground = true
             textField.backgroundColor = NSColor.lightGray.withAlphaComponent(0.1)
             textField.font = NSFont.systemFont(ofSize: 12, weight: .medium)
             textField.translatesAutoresizingMaskIntoConstraints = false
+            textField.lineBreakMode = .byWordWrapping
+            textField.maximumNumberOfLines = 0
+            textField.cell?.wraps = true
+            textField.cell?.isScrollable = false
             
             cell.addSubview(textField)
             cell.textField = textField
@@ -84,13 +88,10 @@ extension HistoryWindowController: NSTableViewDelegate, NSTableViewDataSource {
             // 布局约束 - 使用灵活的约束，避免冲突
             NSLayoutConstraint.activate([
                 textField.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 4),
+                textField.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -4),
                 textField.topAnchor.constraint(equalTo: cell.topAnchor, constant: 4),
                 textField.bottomAnchor.constraint(equalTo: cell.bottomAnchor, constant: -4)
             ])
-            
-            // 设置内容拥抱和压缩阻力优先级
-            textField.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-            textField.setContentHuggingPriority(.defaultLow, for: .horizontal)
         }
         
         // 设置文本内容
@@ -111,13 +112,27 @@ extension HistoryWindowController: NSTableViewDelegate, NSTableViewDataSource {
             case "测试时间":
                 cell.textField?.stringValue = components.count > 0 ? components[0] : "未知时间"
             case "失败用例":
-                cell.textField?.stringValue = components.count > 1 ? components[1] : "无具体用例"
+                // 将同一组的所有失败用例用";"连接在一起
+                let allFailureCases = group.items.map { item -> String in
+                    let itemComponents = item.components(separatedBy: " | ")
+                    return itemComponents.count > 1 ? itemComponents[1] : "无具体用例"
+                }
+                let uniqueFailureCases = Array(Set(allFailureCases)).sorted()
+                let failureCaseText = uniqueFailureCases.joined(separator: "; ")
+                cell.textField?.stringValue = failureCaseText
+                
+                // 强制重新计算布局，确保文本换行
+                DispatchQueue.main.async { [weak self] in
+                    if let tableView = self?.tableView {
+                        tableView.noteHeightOfRows(withIndexesChanged: IndexSet(integer: groupIndex * 2))
+                    }
+                }
             case "Upper Limit":
-                cell.textField?.stringValue = components.count > 3 ? components[3] : ""
+                cell.textField?.stringValue = ""
             case "Lower Limit":
-                cell.textField?.stringValue = components.count > 4 ? components[4] : ""
+                cell.textField?.stringValue = ""
             case "Value":
-                cell.textField?.stringValue = components.count > 5 ? components[5] : ""
+                cell.textField?.stringValue = ""
             case "SN":
                 cell.textField?.stringValue = components.count > 6 ? components[6] : ""
             case "通道号":
@@ -214,8 +229,8 @@ extension HistoryWindowController: NSTableViewDelegate, NSTableViewDataSource {
     }
     
     func getCellValue(for column: String, row: Int, useOriginalData: Bool = false) -> String {
-        // 根据参数选择使用原始数据还是过滤后的数据
-        let targetArray = useOriginalData ? failures : filteredFailures
+        // 使用原始数据
+        let targetArray = failures
         guard row < targetArray.count else { return "" }
         
         let failure = targetArray[row]
@@ -260,8 +275,44 @@ extension HistoryWindowController: NSTableViewDelegate, NSTableViewDataSource {
         let (groupIndex, isHeader, itemIndex) = getGroupInfo(forRow: row)
         
         if isHeader {
-            // 分组标题行固定高度
-            return 30
+            // 分组标题行，根据内容计算高度
+            let group = groupedFailures[groupIndex]
+            
+            // 计算文件路径长度
+            let filePath = group.filePath
+            let filePathFont = NSFont.systemFont(ofSize: 12, weight: .medium)
+            let filePathAttributes: [NSAttributedString.Key: Any] = [.font: filePathFont]
+            let filePathSize = filePath.size(withAttributes: filePathAttributes)
+            
+            // 计算失败用例长度
+            let allFailureCases = group.items.map { item -> String in
+                let itemComponents = item.components(separatedBy: " | ")
+                return itemComponents.count > 1 ? itemComponents[1] : "无具体用例"
+            }
+            let uniqueFailureCases = Array(Set(allFailureCases)).sorted()
+            let failureCaseText = uniqueFailureCases.joined(separator: "; ")
+            let failureCaseSize = failureCaseText.size(withAttributes: filePathAttributes)
+            
+            // 取最大值作为基础宽度
+            let maxWidth = max(filePathSize.width, failureCaseSize.width)
+            
+            // 计算需要的行数
+            // 获取失败用例列的宽度
+            var failureCaseColumnWidth: CGFloat = 300 // 默认宽度
+            if let failureCaseColumn = tableView.tableColumns.first(where: { $0.identifier.rawValue == "失败用例" }) {
+                failureCaseColumnWidth = failureCaseColumn.width
+            }
+            // 减去边距
+            let availableWidth = failureCaseColumnWidth - 10
+            let lines = max(1, ceil(maxWidth / availableWidth))
+            
+            // #if DEBUG
+            // // 打印 debug 信息
+            // print("🔍 行高计算 - 行号: \(row), 类型: 标题行, maxWidth: \(maxWidth), availableWidth: \(availableWidth), 行数: \(lines), 最终高度: \(CGFloat(lines * 18) + 10)")
+            // #endif
+            
+            // 计算高度，每行 18 像素，加上边距
+            return CGFloat(lines * 18) + 10
         } else if groupIndex >= 0 && itemIndex >= 0 {
             // 内容行，根据内容计算高度
             let group = groupedFailures[groupIndex]
@@ -365,6 +416,12 @@ extension HistoryWindowController: NSTableViewDelegate, NSTableViewDataSource {
                 deleteGroupItem.representedObject = ["groupIndex": groupIndex]
                 deleteGroupItem.target = self
                 menu.addItem(deleteGroupItem)
+                
+                // 复制失败用例信息选项
+                let copyFailureInfoItem = NSMenuItem(title: "复制失败用例信息", action: #selector(copyFailureCaseInfo(_:)), keyEquivalent: "")
+                copyFailureInfoItem.representedObject = ["groupIndex": groupIndex, "isHeader": true]
+                copyFailureInfoItem.target = self
+                menu.addItem(copyFailureInfoItem)
             } else if itemIndex >= 0 {
                 print("📋 点击了内容行")
                 // 内容行的菜单
@@ -384,6 +441,12 @@ extension HistoryWindowController: NSTableViewDelegate, NSTableViewDataSource {
                 blockGlobalItem.representedObject = ["groupIndex": groupIndex, "itemIndex": itemIndex]
                 blockGlobalItem.target = self
                 menu.addItem(blockGlobalItem)
+                
+                // 复制失败用例信息选项
+                let copyFailureInfoItem = NSMenuItem(title: "复制失败用例信息", action: #selector(copyFailureCaseInfo(_:)), keyEquivalent: "")
+                copyFailureInfoItem.representedObject = ["groupIndex": groupIndex, "itemIndex": itemIndex, "isHeader": false]
+                copyFailureInfoItem.target = self
+                menu.addItem(copyFailureInfoItem)
             }
         }
         
@@ -403,5 +466,44 @@ extension HistoryWindowController: NSTableViewDelegate, NSTableViewDataSource {
         }
         
         return menu
+    }
+    
+    // 复制失败用例信息
+    @objc func copyFailureCaseInfo(_ sender: NSMenuItem) {
+        guard let representedObject = sender.representedObject as? [String: Any],
+              let groupIndex = representedObject["groupIndex"] as? Int else {
+            print("❌ 无法获取分组信息")
+            return
+        }
+        
+        let isHeader = representedObject["isHeader"] as? Bool ?? false
+        
+        if isHeader {
+            // 复制标题行的失败用例信息
+            let group = groupedFailures[groupIndex]
+            let allFailureCases = group.items.map { $0.components(separatedBy: " | ")[1] }
+            let uniqueFailureCases = Array(Set(allFailureCases)).sorted()
+            let failureCaseText = uniqueFailureCases.joined(separator: "; ")
+            
+            // 复制到剪贴板
+            let pasteboard = NSPasteboard.general
+            pasteboard.clearContents()
+            pasteboard.setString(failureCaseText, forType: .string)
+            
+            print("📋 已复制标题行失败用例信息: \(failureCaseText)")
+        } else if let itemIndex = representedObject["itemIndex"] as? Int {
+            // 复制内容行的失败用例信息
+            let group = groupedFailures[groupIndex]
+            let failure = group.items[itemIndex]
+            let components = failure.components(separatedBy: " | ")
+            let failureCaseText = components.count > 1 ? components[1] : ""
+            
+            // 复制到剪贴板
+            let pasteboard = NSPasteboard.general
+            pasteboard.clearContents()
+            pasteboard.setString(failureCaseText, forType: .string)
+            
+            print("📋 已复制内容行失败用例信息: \(failureCaseText)")
+        }
     }
 }

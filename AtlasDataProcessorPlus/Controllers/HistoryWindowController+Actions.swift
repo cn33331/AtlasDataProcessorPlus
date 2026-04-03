@@ -45,6 +45,56 @@ extension HistoryWindowController {
         startProcessing(path: path)
     }
     
+    @objc func saveFailHeadersButtonClicked() {
+        guard !groupedFailures.isEmpty else {
+            showAlert(title: "提示", message: "没有可导出的失败数据")
+            return
+        }
+        
+        let savePanel = NSSavePanel()
+        savePanel.allowedContentTypes = [.commaSeparatedText]
+        savePanel.nameFieldStringValue = "FailHeaders_\(Date().timeIntervalSince1970).csv"
+        savePanel.message = "选择保存 Fail 标题行 CSV 文件的位置"
+        
+        savePanel.beginSheetModal(for: window!) { [weak self] response in
+            guard response == .OK, let url = savePanel.url else { return }
+            
+            do {
+                // 构建 CSV 内容
+                var csvRows: [String] = []
+                
+                // 添加表头
+                csvRows.append("文件路径,失败用例,测试时间,SN,通道号")
+                
+                // 遍历所有分组（标题行）
+                for group in self?.groupedFailures ?? [] {
+                    // 获取所有唯一的失败用例
+                    let allFailureCases = group.items.map { $0.components(separatedBy: " | ")[1] }
+                    let uniqueFailureCases = Array(Set(allFailureCases)).sorted()
+                    let failureCaseText = uniqueFailureCases.joined(separator: "; ")
+                    
+                    // 获取第一行的信息作为标题行信息
+                    let firstItem = group.items.first ?? ""
+                    let components = firstItem.components(separatedBy: " | ")
+                    let time = components.count > 0 ? components[0] : ""
+                    let sn = components.count > 6 ? components[6] : ""
+                    let channel = components.count > 7 ? components[7] : ""
+                    
+                    // 构建 CSV 行
+                    let row = "\(group.filePath),\(failureCaseText),\(time),\(sn),\(channel)"
+                    csvRows.append(row)
+                }
+                
+                let csvContent = csvRows.joined(separator: "\n")
+                try csvContent.write(to: url, atomically: true, encoding: .utf8)
+                self?.showAlert(title: "成功", message: "Fail 标题行 CSV 文件已保存到: \(url.path)")
+                
+            } catch {
+                self?.showAlert(title: "保存失败", message: "无法保存文件: \(error.localizedDescription)")
+            }
+        }
+    }
+    
     @objc func saveCSVButtonClicked() {
         guard let processor = processor else { return }
         
@@ -142,6 +192,7 @@ extension HistoryWindowController {
         statusLabel.stringValue = "正在处理数据..."
         
         // 重置按钮状态
+        saveFailHeadersButton.isEnabled = false
         saveCSVButton.isEnabled = false
         saveCSVPlusButton.isEnabled = false
         exportJSONButton.isEnabled = false
@@ -174,15 +225,8 @@ extension HistoryWindowController {
                     let channelColumnName = self.tableConfig["channel"] ?? ""
                     self.failures = processor.getFailureSummary(snColumnName: snColumnName, channelColumnName: channelColumnName)
                     
-                    // 初始化筛选数据
-                    self.filteredFailures = self.failures
-                    
                     // 对失败记录按文件路径分组（应用屏蔽规则）
                     self.groupFailuresByFilePath()
-                    
-                    // 重置筛选和排序状态
-                    self.filters.removeAll()
-                    self.sortColumn = nil
                     
                     // 暂时允许空选择
                     self.tableView.allowsEmptySelection = true
@@ -197,6 +241,7 @@ extension HistoryWindowController {
                     self.tableView.allowsEmptySelection = false
                     
                     // 启用保存按钮
+                    self.saveFailHeadersButton.isEnabled = !self.groupedFailures.isEmpty
                     self.saveCSVButton.isEnabled = !self.processedData.isEmpty
                     self.saveCSVPlusButton.isEnabled = !self.processedDataPlus.isEmpty
                     self.exportJSONButton.isEnabled = true

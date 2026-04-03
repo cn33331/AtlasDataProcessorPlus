@@ -103,6 +103,7 @@ class HistoryWindowController: NSWindowController {
     }
     
     // 操作按钮
+    var saveFailHeadersButton: NSButton!
     var saveCSVButton: NSButton!
     var saveCSVPlusButton: NSButton!
     var exportJSONButton: NSButton!
@@ -211,13 +212,7 @@ class HistoryWindowController: NSWindowController {
     }
     
     deinit {
-        // 移除事件监听器
-        if let monitor = mouseDraggedMonitor {
-            NSEvent.removeMonitor(monitor)
-        }
-        if let monitor = multiSelectMouseUpMonitor {
-            NSEvent.removeMonitor(monitor)
-        }
+        // 清理资源
     }
     
     // 处理表格视图的鼠标按下事件

@@ -159,6 +159,7 @@ NSWindow
     │   │           └── 表格列和单元格
     │   └── 操作按钮 (NSView)
     │       └── NSStackView (水平)
+    │           ├── 保存Fail标题行按钮 (NSButton) - 导出所有分组的标题行信息到CSV
     │           ├── 保存CSV按钮 (NSButton)
     │           ├── 保存CSV Plus按钮 (NSButton)
     │           └── 导出JSON按钮 (NSButton)
