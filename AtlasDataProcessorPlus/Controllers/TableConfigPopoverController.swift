@@ -3,6 +3,27 @@
 
 import Cocoa
 
+// 自定义文本框，支持粘贴操作
+class CustomTextField: NSTextField {
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        // 检查是否是 Command+V (粘贴)
+        if event.modifierFlags.contains(.command) && event.keyCode == 9 {
+            // 9 是 'v' 键的 keyCode
+            if let pasteboardString = NSPasteboard.general.string(forType: .string) {
+                // 获取当前选中的文本范围
+                let selectedRange = self.currentEditor()?.selectedRange
+                
+                // 插入粘贴的文本
+                if let editor = self.currentEditor() {
+                    editor.insertText(pasteboardString)
+                    return true
+                }
+            }
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+}
+
 class TableConfigPopoverController: NSViewController {
     
     // 文本字段
@@ -48,8 +69,8 @@ class TableConfigPopoverController: NSViewController {
         snLabel.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(snLabel)
         
-        // SN 文本字段
-        snTextField = NSTextField()
+        // SN 文本字段 - 使用自定义类支持粘贴操作
+        snTextField = CustomTextField()
         snTextField.placeholderString = "PrimaryIdentity"
         snTextField.font = NSFont.systemFont(ofSize: 14)
         snTextField.translatesAutoresizingMaskIntoConstraints = false
@@ -61,8 +82,8 @@ class TableConfigPopoverController: NSViewController {
         channelLabel.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(channelLabel)
         
-        // 通道号文本字段
-        channelTextField = NSTextField()
+        // 通道号文本字段 - 使用自定义类支持粘贴操作
+        channelTextField = CustomTextField()
         channelTextField.placeholderString = "Fixture Channel ID"
         channelTextField.font = NSFont.systemFont(ofSize: 14)
         channelTextField.translatesAutoresizingMaskIntoConstraints = false

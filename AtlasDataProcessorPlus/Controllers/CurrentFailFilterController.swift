@@ -3,6 +3,27 @@
 
 import Cocoa
 
+// 自定义搜索框，支持粘贴操作
+class CustomSearchField: NSSearchField {
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        // 检查是否是 Command+V (粘贴)
+        if event.modifierFlags.contains(.command) && event.keyCode == 9 {
+            // 9 是 'v' 键的 keyCode
+            if let pasteboardString = NSPasteboard.general.string(forType: .string) {
+                // 获取当前选中的文本范围
+                let selectedRange = self.currentEditor()?.selectedRange
+                
+                // 插入粘贴的文本
+                if let editor = self.currentEditor() {
+                    editor.insertText(pasteboardString)
+                    return true
+                }
+            }
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+}
+
 class CurrentFailFilterController: NSViewController {
     
     // 表格视图
@@ -32,8 +53,8 @@ class CurrentFailFilterController: NSViewController {
     }
     
     override func loadView() {
-        // 创建主视图 - 增加宽度到1000以适应长文本
-        let view = NSView(frame: NSRect(x: 0, y: 0, width: 1000, height: 300))
+        // 创建主视图 - 增加宽度到1000以适应长文本，高度增加到340以容纳搜索框
+        let view = NSView(frame: NSRect(x: 0, y: 0, width: 1000, height: 340))
         view.wantsLayer = true
         view.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         self.view = view
@@ -48,6 +69,24 @@ class CurrentFailFilterController: NSViewController {
         titleLabel.font = NSFont.systemFont(ofSize: 16, weight: .medium)
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(titleLabel)
+        
+        // 搜索框 - 使用自定义类支持粘贴操作
+        let searchField = CustomSearchField()
+        searchField.placeholderString = "搜索失败用例，按回车定位"
+        searchField.font = NSFont.systemFont(ofSize: 12)
+        searchField.translatesAutoresizingMaskIntoConstraints = false
+        searchField.target = self
+        searchField.action = #selector(searchFailureCase(_:))
+        // 确保搜索框可以成为第一响应者，支持粘贴等编辑操作
+        searchField.isEditable = true
+        searchField.isSelectable = true
+        searchField.isEnabled = true
+        view.addSubview(searchField)
+        
+        // 将搜索框设置为第一响应者，确保它可以接收键盘事件
+        DispatchQueue.main.async {
+            self.view.window?.makeFirstResponder(searchField)
+        }
         
         // 提示标签
         let infoLabel = NSTextField(labelWithString: "勾选要屏蔽的失败用例")
@@ -128,8 +167,14 @@ class CurrentFailFilterController: NSViewController {
             titleLabel.topAnchor.constraint(equalTo: view.topAnchor, constant: 20),
             titleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
             
+            // 搜索框
+            searchField.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 8),
+            searchField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            searchField.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            searchField.heightAnchor.constraint(equalToConstant: 24),
+            
             // 提示标签
-            infoLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 8),
+            infoLabel.topAnchor.constraint(equalTo: searchField.bottomAnchor, constant: 8),
             infoLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
             
             // 滚动视图
@@ -178,6 +223,25 @@ class CurrentFailFilterController: NSViewController {
         
         // 刷新表格
         tableView.reloadData()
+    }
+    
+    @objc private func searchFailureCase(_ sender: NSSearchField) {
+        let searchText = sender.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !searchText.isEmpty else { return }
+        
+        // 在失败用例列表中搜索
+        for (index, failureCase) in failureCases.enumerated() {
+            if failureCase.localizedCaseInsensitiveContains(searchText) {
+                // 找到匹配项，选中并滚动到该位置
+                tableView.selectRowIndexes(IndexSet(integer: index), byExtendingSelection: false)
+                tableView.scrollRowToVisible(index)
+                print("🔍 定位到失败用例: \(failureCase) (行 \(index))")
+                return
+            }
+        }
+        
+        // 未找到匹配项
+        print("❌ 未找到匹配的失败用例: \(searchText)")
     }
     
     @objc private func cancel() {
