@@ -311,37 +311,76 @@ extension HistoryWindowController {
     @objc func showCurrentFailFilter(_ sender: Any) {
         print("🔄 HistoryWindowController: showCurrentFailFilter() 被调用")
         
+        // 按文件路径分组失败记录（用于计算标题行数量）
+        var filePathToFailures: [String: [String]] = [:]
+        for failure in failures {
+            let components = failure.components(separatedBy: " | ")
+            let filePath = components.count > 2 ? components[2] : "未知文件"
+            filePathToFailures[filePath, default: []].append(failure)
+        }
+        
         // 提取当前所有失败用例（排除默认屏蔽项）并统计出现次数
         var allFailureCases: Set<String> = []
         var failureCaseCounts: [String: Int] = [:]
         var channelToFailures: [String: [String]] = [:]
         var snToFailures: [String: [String]] = [:]
+        // 新增：通道到失败用例内容行计数的映射
+        var channelToFailureContentCounts: [String: [String: Int]] = [:]
         
+        // 遍历每个分组（标题行）来构建 SN 和通道号映射（使用标题行计数）
+        for (_, groupFailures) in filePathToFailures {
+            if !groupFailures.isEmpty {
+                let firstFailure = groupFailures[0]
+                let parts = firstFailure.components(separatedBy: "|")
+                if parts.count >= 3 {
+                    // 第2个部分（索引1）是失败用例名称
+                    let failureCase = parts[1].trimmingCharacters(in: .whitespaces)
+                    // 排除空值、无具体用例和默认屏蔽项
+                    if !failureCase.isEmpty && failureCase != "无具体用例" && !defaultBlockedFailures.contains(failureCase) {
+                        allFailureCases.insert(failureCase)
+                        
+                        // 提取通道号
+                        if parts.count >= 8 {
+                            let channel = parts[7].trimmingCharacters(in: .whitespaces)
+                            if !channel.isEmpty {
+                                channelToFailures[channel, default: []].append(failureCase)
+                            }
+                        }
+                        
+                        // 提取SN
+                        if parts.count >= 7 {
+                            let sn = parts[6].trimmingCharacters(in: .whitespaces)
+                            if !sn.isEmpty {
+                                snToFailures[sn, default: []].append(failureCase)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 遍历所有失败记录（内容行）来统计失败用例出现次数（使用内容行计数）
         for failure in failures {
-            // 失败用例格式: "时间 | 失败用例 | 路径 | Upper Limit | Lower Limit | Value | SN | 通道号"
             let parts = failure.components(separatedBy: "|")
             if parts.count >= 3 {
-                // 第2个部分（索引1）是失败用例名称
                 let failureCase = parts[1].trimmingCharacters(in: .whitespaces)
                 // 排除空值、无具体用例和默认屏蔽项
                 if !failureCase.isEmpty && failureCase != "无具体用例" && !defaultBlockedFailures.contains(failureCase) {
+                    // 添加到所有失败用例集合
                     allFailureCases.insert(failureCase)
-                    // 统计出现次数
+                    // 统计出现次数（内容行计数）
                     failureCaseCounts[failureCase, default: 0] += 1
                     
-                    // 提取通道号
+                    // 提取通道号并统计内容行计数
                     if parts.count >= 8 {
                         let channel = parts[7].trimmingCharacters(in: .whitespaces)
                         if !channel.isEmpty {
-                            channelToFailures[channel, default: []].append(failureCase)
-                        }
-                    }
-                    
-                    // 提取SN
-                    if parts.count >= 7 {
-                        let sn = parts[6].trimmingCharacters(in: .whitespaces)
-                        if !sn.isEmpty {
-                            snToFailures[sn, default: []].append(failureCase)
+                            // 初始化通道的计数字典
+                            if channelToFailureContentCounts[channel] == nil {
+                                channelToFailureContentCounts[channel] = [:]
+                            }
+                            // 统计该失败用例在该通道中的内容行计数
+                            channelToFailureContentCounts[channel]![failureCase, default: 0] += 1
                         }
                     }
                 }
@@ -349,10 +388,35 @@ extension HistoryWindowController {
         }     
         #if DEBUG
             print("📋 当前所有失败用例（排除默认屏蔽项）: \(allFailureCases)")
-            print("📋 失败用例出现次数: \(failureCaseCounts)")
+            print("📋 失败用例出现次数（内容行计数）: \(failureCaseCounts)")
             print("📋 通道号数量: \(channelToFailures.keys.count)")
             print("📋 SN数量: \(snToFailures.keys.count)")
             print("📋 默认屏蔽项: \(defaultBlockedFailures)")
+            print("📋 标题行数量: \(filePathToFailures.keys.count)")
+            print("📋 内容行总数: \(failures.count)")
+            
+            // 计算标题行计数和内容行计数的差异
+            var titleRowCounts: [String: Int] = [:]
+            for (_, groupFailures) in filePathToFailures {
+                if !groupFailures.isEmpty {
+                    let firstFailure = groupFailures[0]
+                    let parts = firstFailure.components(separatedBy: "|")
+                    if parts.count >= 3 {
+                        let failureCase = parts[1].trimmingCharacters(in: .whitespaces)
+                        if !failureCase.isEmpty && failureCase != "无具体用例" && !defaultBlockedFailures.contains(failureCase) {
+                            titleRowCounts[failureCase, default: 0] += 1
+                        }
+                    }
+                }
+            }
+            
+            // 打印差异
+            for (failureCase, contentCount) in failureCaseCounts {
+                let titleCount = titleRowCounts[failureCase] ?? 0
+                if contentCount != titleCount {
+                    print("📊 差异: \(failureCase) - 标题行计数=\(titleCount), 内容行计数=\(contentCount)")
+                }
+            }
         #endif
         
         // 创建弹出式面板
@@ -368,18 +432,31 @@ extension HistoryWindowController {
         filterController.failureCases = Array(allFailureCases).sorted { failureCaseCounts[$0] ?? 0 > failureCaseCounts[$1] ?? 0 }
         filterController.failureCaseCounts = failureCaseCounts
         filterController.channelToFailures = channelToFailures
+        filterController.channelToFailureContentCounts = channelToFailureContentCounts
         filterController.snToFailures = snToFailures
+        
+        // 传递之前的屏蔽状态
+        filterController.failureCaseBlocked = sessionBlockedFailures
+        filterController.snBlocked = sessionBlockedSNs
+        filterController.channelBlocked = sessionBlockedChannels
+        
+        // 最后设置 blockedFailures
         filterController.blockedFailures = sessionBlockedFailures
+        
         filterController.setPopover(popover)
         
         // 设置回调
-        filterController.completionHandler = { [weak self] filteredFailures in
+        filterController.completionHandler = { [weak self] (blockedFailures: Set<String>, blockedSNs: Set<String>, blockedChannels: Set<String>) in
             guard let self = self else { return }
             
             // 更新会话屏蔽列表
-            self.sessionBlockedFailures = filteredFailures
+            self.sessionBlockedFailures = blockedFailures
+            self.sessionBlockedSNs = blockedSNs
+            self.sessionBlockedChannels = blockedChannels
             
             print("📋 会话屏蔽的失败用例: \(self.sessionBlockedFailures)")
+            print("📋 会话屏蔽的SN: \(self.sessionBlockedSNs)")
+            print("📋 会话屏蔽的通道号: \(self.sessionBlockedChannels)")
             
             // 重新生成分组数据（应用新的屏蔽设置）
             self.groupFailuresByFilePath()
@@ -570,8 +647,18 @@ extension HistoryWindowController {
             let components = failure.components(separatedBy: " | ")
             let testCase = components.count > 1 ? components[1] : ""
             
-            // 跳过被屏蔽的失败用例
+            // 提取SN和通道号
+            let sn = components.count > 6 ? components[6] : ""
+            let channel = components.count > 7 ? components[7] : ""
+            
+            // 跳过被屏蔽的失败用例、SN或通道号
             if !testCase.isEmpty && blockedFailures.contains(testCase) {
+                continue
+            }
+            if !sn.isEmpty && sessionBlockedSNs.contains(sn) {
+                continue
+            }
+            if !channel.isEmpty && sessionBlockedChannels.contains(channel) {
                 continue
             }
             

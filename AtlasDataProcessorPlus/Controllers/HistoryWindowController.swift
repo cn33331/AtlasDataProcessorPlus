@@ -72,6 +72,12 @@ class HistoryWindowController: NSWindowController {
     // 会话屏蔽的失败用例列表（通过右键菜单临时屏蔽）
     var sessionBlockedFailures: Set<String> = []
     
+    // 会话屏蔽的SN列表（通过当前失败用例筛选面板临时屏蔽）
+    var sessionBlockedSNs: Set<String> = []
+    
+    // 会话屏蔽的通道号列表（通过当前失败用例筛选面板临时屏蔽）
+    var sessionBlockedChannels: Set<String> = []
+    
     // 合并的屏蔽列表（用于实际过滤）
     var blockedFailures: Set<String> {
         return defaultBlockedFailures.union(sessionBlockedFailures)
