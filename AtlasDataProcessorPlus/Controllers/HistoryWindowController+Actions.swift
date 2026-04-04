@@ -315,6 +315,7 @@ extension HistoryWindowController {
         var allFailureCases: Set<String> = []
         var failureCaseCounts: [String: Int] = [:]
         var channelToFailures: [String: [String]] = [:]
+        var snToFailures: [String: [String]] = [:]
         
         for failure in failures {
             // 失败用例格式: "时间 | 失败用例 | 路径 | Upper Limit | Lower Limit | Value | SN | 通道号"
@@ -335,17 +336,29 @@ extension HistoryWindowController {
                             channelToFailures[channel, default: []].append(failureCase)
                         }
                     }
+                    
+                    // 提取SN
+                    if parts.count >= 7 {
+                        let sn = parts[6].trimmingCharacters(in: .whitespaces)
+                        if !sn.isEmpty {
+                            snToFailures[sn, default: []].append(failureCase)
+                        }
+                    }
                 }
             }
-        }
-        
-        print("📋 当前所有失败用例（排除默认屏蔽项）: \(allFailureCases)")
-        print("📋 失败用例出现次数: \(failureCaseCounts)")
-        print("📋 默认屏蔽项: \(defaultBlockedFailures)")
+        }     
+        #if DEBUG
+            print("📋 当前所有失败用例（排除默认屏蔽项）: \(allFailureCases)")
+            print("📋 失败用例出现次数: \(failureCaseCounts)")
+            print("📋 通道号数量: \(channelToFailures.keys.count)")
+            print("📋 SN数量: \(snToFailures.keys.count)")
+            print("📋 默认屏蔽项: \(defaultBlockedFailures)")
+        #endif
         
         // 创建弹出式面板
         let popover = NSPopover()
-        popover.behavior = .transient
+        // popover.behavior = .transient
+        popover.behavior = .semitransient // 关键：改为半持久化，点击Xcode/面板外不会消失
         popover.animates = true
         popover.appearance = NSAppearance(named: .aqua)
         
@@ -355,6 +368,7 @@ extension HistoryWindowController {
         filterController.failureCases = Array(allFailureCases).sorted { failureCaseCounts[$0] ?? 0 > failureCaseCounts[$1] ?? 0 }
         filterController.failureCaseCounts = failureCaseCounts
         filterController.channelToFailures = channelToFailures
+        filterController.snToFailures = snToFailures
         filterController.blockedFailures = sessionBlockedFailures
         filterController.setPopover(popover)
         
@@ -395,7 +409,8 @@ extension HistoryWindowController {
         
         // 创建弹出式面板
         let popover = NSPopover()
-        popover.behavior = .transient
+        // popover.behavior = .transient
+        popover.behavior = .semitransient // 关键：改为半持久化，点击Xcode/面板外不会消失
         popover.animates = true
         popover.appearance = NSAppearance(named: .aqua)
         
@@ -490,7 +505,8 @@ extension HistoryWindowController {
         
         // 创建弹出式面板
         let popover = NSPopover()
-        popover.behavior = .transient // 点击外部区域会关闭
+        // popover.behavior = .transient // 点击外部区域会关闭
+        popover.behavior = .semitransient // 关键：改为半持久化，点击Xcode/面板外不会消失
         popover.appearance = NSAppearance(named: .aqua)
         
         // 创建面板控制器
