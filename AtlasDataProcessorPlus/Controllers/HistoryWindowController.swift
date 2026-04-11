@@ -78,6 +78,9 @@ class HistoryWindowController: NSWindowController {
     // 会话屏蔽的通道号列表（通过当前失败用例筛选面板临时屏蔽）
     var sessionBlockedChannels: Set<String> = []
     
+    // 会话屏蔽的S_BUILD列表（通过当前失败用例筛选面板临时屏蔽）
+    var sessionBlockedSBuilds: Set<String> = []
+    
     // 合并的屏蔽列表（用于实际过滤）
     var blockedFailures: Set<String> {
         return defaultBlockedFailures.union(sessionBlockedFailures)
@@ -86,7 +89,8 @@ class HistoryWindowController: NSWindowController {
     // 表格配置信息
     var tableConfig: [String: String] = [
         "sn": "PrimaryIdentity",
-        "channel": "Fixture Channel ID"
+        "channel": "Fixture Channel ID",
+        "s_build": "S_BUILD"
     ]
     
     // 表格配置文件路径

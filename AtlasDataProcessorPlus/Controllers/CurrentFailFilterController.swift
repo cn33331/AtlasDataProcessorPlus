@@ -30,6 +30,7 @@ class CurrentFailFilterController: NSViewController {
     private var failureCaseTableView: NSTableView!
     private var snTableView: NSTableView!
     private var channelTableView: NSTableView!
+    private var sBuildTableView: NSTableView!
     
     // 分段控件
     private var segmentedControl: NSSegmentedControl!
@@ -47,13 +48,16 @@ class CurrentFailFilterController: NSViewController {
     var failureCaseCounts: [String: Int] = [:]
     
     // 通道号到失败用例的映射（标题行计数）
-    var channelToFailures: [String: [String]] = [:]
+    var channelToFailures: [String: [Any]] = [:]
     
     // 通道号到失败用例内容行计数的映射
     var channelToFailureContentCounts: [String: [String: Int]] = [:]
     
     // SN到失败用例的映射
-    var snToFailures: [String: [String]] = [:]
+    var snToFailures: [String: [Any]] = [:]
+    
+    // S_BUILD到失败用例的映射
+    var sBuildToFailures: [String: [Any]] = [:]
     
     // 已屏蔽的失败用例集合
     var blockedFailures: Set<String> = []
@@ -62,9 +66,10 @@ class CurrentFailFilterController: NSViewController {
     var failureCaseBlocked: Set<String> = []  // 存储被屏蔽的失败用例
     var snBlocked: Set<String> = []  // 存储被屏蔽的SN
     var channelBlocked: Set<String> = []  // 存储被屏蔽的通道号
+    var sBuildBlocked: Set<String> = []  // 存储被屏蔽的S_BUILD
     
-    // 回调闭包 - 传递被屏蔽的失败用例、SN和通道号
-    var completionHandler: ((Set<String>, Set<String>, Set<String>) -> Void)?
+    // 回调闭包 - 传递被屏蔽的失败用例、SN、通道号和S_BUILD
+    var completionHandler: ((Set<String>, Set<String>, Set<String>, Set<String>) -> Void)?
     
     // 弹出式面板
     private weak var popover: NSPopover?
@@ -75,8 +80,8 @@ class CurrentFailFilterController: NSViewController {
     }
     
     override func loadView() {
-        // 创建主视图 - 增加宽度到1000以适应长文本，高度增加到400以容纳标签页
-        let view = NSView(frame: NSRect(x: 0, y: 0, width: 1000, height: 400))
+        // 创建主视图 - 增加宽度到1000以适应长文本，高度增加到480以容纳标签页
+        let view = NSView(frame: NSRect(x: 0, y: 0, width: 1000, height: 480))
         view.wantsLayer = true
         view.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         self.view = view
@@ -118,7 +123,7 @@ class CurrentFailFilterController: NSViewController {
         view.addSubview(infoLabel)
         
         // 分段控件 - 用于切换不同的筛选方式
-        segmentedControl = NSSegmentedControl(labels: ["失败用例", "SN", "通道号"], trackingMode: .selectOne, target: self, action: #selector(segmentedControlChanged(_:)))
+        segmentedControl = NSSegmentedControl(labels: ["失败用例", "SN", "通道号", "S_BUILD"], trackingMode: .selectOne, target: self, action: #selector(segmentedControlChanged(_:)))
         segmentedControl.selectedSegment = 0
         segmentedControl.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(segmentedControl)
@@ -186,7 +191,7 @@ class CurrentFailFilterController: NSViewController {
             contentContainer.topAnchor.constraint(equalTo: segmentedControl.bottomAnchor, constant: 16),
             contentContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
             contentContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            contentContainer.heightAnchor.constraint(equalToConstant: 240),
+            contentContainer.heightAnchor.constraint(equalToConstant: 320),
             
             // 按钮容器
             buttonContainer.topAnchor.constraint(equalTo: contentContainer.bottomAnchor, constant: 16),
@@ -222,8 +227,9 @@ class CurrentFailFilterController: NSViewController {
         let selectedSegment = sender.selectedSegment
         
         #if DEBUG
-        print("🔧 切换到标签页: \(selectedSegment == 0 ? "失败用例" : (selectedSegment == 1 ? "SN" : "通道号"))")
-        print("🔧 切换前 - 失败用例屏蔽: \(failureCaseBlocked.count), SN屏蔽: \(snBlocked.count), 通道屏蔽: \(channelBlocked.count)")
+        let tabName = selectedSegment == 0 ? "失败用例" : (selectedSegment == 1 ? "SN" : (selectedSegment == 2 ? "通道号" : "S_BUILD"))
+        print("🔧 切换到标签页: \(tabName)")
+        print("🔧 切换前 - 失败用例屏蔽: \(failureCaseBlocked.count), SN屏蔽: \(snBlocked.count), 通道屏蔽: \(channelBlocked.count), S_BUILD屏蔽: \(sBuildBlocked.count)")
         #endif
         
         // 移除内容容器中的所有子视图
@@ -239,6 +245,8 @@ class CurrentFailFilterController: NSViewController {
             showSNFilter(in: contentContainer)
         case 2: // 通道号
             showChannelFilter(in: contentContainer)
+        case 3: // S_BUILD
+            showSBuildFilter(in: contentContainer)
         default:
             break
         }
@@ -271,13 +279,27 @@ class CurrentFailFilterController: NSViewController {
         failureCaseTableView.reloadData()
     }
     
+    // 辅助函数：从 [Any] 中提取所有失败用例
+    private func extractAllFailures(_ failures: [Any]) -> [String] {
+        var allFailures: [String] = []
+        for item in failures {
+            if let failure = item as? String {
+                allFailures.append(failure)
+            } else if let failureArray = item as? [String] {
+                allFailures.append(contentsOf: failureArray)
+            }
+        }
+        return allFailures
+    }
+    
     // 显示SN筛选
     private func showSNFilter(in container: NSView) {
         #if DEBUG
         print("🔧 显示SN筛选")
         print("🔧 SN到失败用例的映射: \(snToFailures)")
         for (sn, failures) in snToFailures {
-            let uniqueFailures = Set(failures)
+            let allFailures = extractAllFailures(failures)
+            let uniqueFailures = Set(allFailures)
             print("🔧 SN=\(sn), 内容行数量=\(failures.count), 唯一失败用例数量=\(uniqueFailures.count)")
             print("🔧 唯一失败用例: \(uniqueFailures)")
         }
@@ -312,7 +334,9 @@ class CurrentFailFilterController: NSViewController {
         print("🔧 显示通道号筛选")
         print("🔧 通道号到失败用例的映射: \(channelToFailures)")
         for (channel, failures) in channelToFailures {
-            print("🔧 通道号=\(channel), 内容行数量=\(failures.count), 唯一失败用例数量=\(Set(failures).count)")
+            let allFailures = extractAllFailures(failures)
+            let uniqueFailures = Set(allFailures)
+            print("🔧 通道号=\(channel), 内容行数量=\(failures.count), 唯一失败用例数量=\(uniqueFailures.count)")
         }
         #endif
         let (view, tableView) = createTabView(columns: [
@@ -336,6 +360,42 @@ class CurrentFailFilterController: NSViewController {
         channelTableView.reloadData()
         #if DEBUG
         print("🔧 通道号表格已显示，行数=\(channelToFailures.keys.count)")
+        #endif
+    }
+    
+    // 显示S_BUILD筛选
+    private func showSBuildFilter(in container: NSView) {
+        #if DEBUG
+        print("🔧 显示S_BUILD筛选")
+        print("🔧 S_BUILD到失败用例的映射: \(sBuildToFailures)")
+        for (sBuild, failures) in sBuildToFailures {
+            let allFailures = extractAllFailures(failures)
+            let uniqueFailures = Set(allFailures)
+            print("🔧 S_BUILD=\(sBuild), 内容行数量=\(failures.count), 唯一失败用例数量=\(uniqueFailures.count)")
+            print("🔧 唯一失败用例: \(uniqueFailures)")
+        }
+        #endif
+        let (view, tableView) = createTabView(columns: [
+            (identifier: "sBuildCheckColumn", title: "", width: CGFloat(40.0)),
+            (identifier: "sBuildCountColumn", title: "失败次数", width: CGFloat(80.0)),
+            (identifier: "sBuildColumn", title: "S_BUILD", width: CGFloat(840.0))
+        ])
+        sBuildTableView = tableView
+        
+        view.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(view)
+        
+        NSLayoutConstraint.activate([
+            view.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            view.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            view.topAnchor.constraint(equalTo: container.topAnchor),
+            view.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+        ])
+        
+        // 刷新表格数据
+        sBuildTableView.reloadData()
+        #if DEBUG
+        print("🔧 S_BUILD表格已显示，行数=\(sBuildToFailures.keys.count)")
         #endif
     }
     
@@ -509,10 +569,11 @@ class CurrentFailFilterController: NSViewController {
         print("📋 会话屏蔽的失败用例: \(failureCaseBlocked)")
         print("📋 会话屏蔽的SN: \(snBlocked)")
         print("📋 会话屏蔽的通道号: \(channelBlocked)")
+        print("📋 会话屏蔽的S_BUILD: \(sBuildBlocked)")
         #endif
         
-        // 调用回调 - 传递三个独立的屏蔽集合
-        completionHandler?(failureCaseBlocked, snBlocked, channelBlocked)
+        // 调用回调 - 传递四个独立的屏蔽集合
+        completionHandler?(failureCaseBlocked, snBlocked, channelBlocked, sBuildBlocked)
         
         // 关闭弹出式面板
         popover?.close()
@@ -535,9 +596,9 @@ class CurrentFailFilterController: NSViewController {
         let sortedFailures = failureCases
         
         // 生成CSV内容
-        var csvContent = "失败用例,总次数"
+        var csvContent = "test item,Total number"
         for channel in sortedChannels {
-            csvContent += ",通道 \(channel)"
+            csvContent += ",slot\(channel)"
         }
         csvContent += "\n"
         
@@ -601,6 +662,19 @@ extension CurrentFailFilterController: NSTableViewDelegate, NSTableViewDataSourc
         return sorted
     }
     
+    // 获取按失败次数排序的S_BUILD列表
+    private func getSortedSBuilds() -> [String] {
+        let sorted = sBuildToFailures.keys.sorted { sBuild1, sBuild2 in
+            let count1 = sBuildToFailures[sBuild1]?.count ?? 0
+            let count2 = sBuildToFailures[sBuild2]?.count ?? 0
+            return count1 > count2
+        }
+        #if DEBUG
+        print("🔧 getSortedSBuilds: S_BUILD数量=\(sorted.count), 前5个=\(sorted.prefix(5))")
+        #endif
+        return sorted
+    }
+    
     // 获取按失败次数排序的通道号列表
     private func getSortedChannels() -> [String] {
         let sorted = channelToFailures.keys.sorted { ch1, ch2 in
@@ -633,6 +707,12 @@ extension CurrentFailFilterController: NSTableViewDelegate, NSTableViewDataSourc
             print("🔧 numberOfRows: channelTableView 行数=\(count)")
             #endif
             return count
+        } else if tableView == sBuildTableView {
+            let count = sBuildToFailures.keys.count
+            #if DEBUG
+            print("🔧 numberOfRows: sBuildTableView 行数=\(count), sBuildToFailures.keys=\(sBuildToFailures.keys)")
+            #endif
+            return count
         }
         #if DEBUG
         print("🔧 numberOfRows: 未知表格")
@@ -644,7 +724,8 @@ extension CurrentFailFilterController: NSTableViewDelegate, NSTableViewDataSourc
         guard let tableColumn = tableColumn else { return nil }
         
         #if DEBUG
-        print("🔧 tableView:viewFor:row: 被调用，表格=\(tableView === failureCaseTableView ? "failureCaseTableView" : (tableView === snTableView ? "snTableView" : "channelTableView")), 行=\(row), 列=\(tableColumn.identifier.rawValue)")
+        let tableViewName = tableView === failureCaseTableView ? "failureCaseTableView" : (tableView === snTableView ? "snTableView" : (tableView === channelTableView ? "channelTableView" : "sBuildTableView"))
+        print("🔧 tableView:viewFor:row: 被调用，表格=\(tableViewName), 行=\(row), 列=\(tableColumn.identifier.rawValue)")
         #endif
         
         // 失败用例表格
@@ -1011,6 +1092,127 @@ extension CurrentFailFilterController: NSTableViewDelegate, NSTableViewDataSourc
                     return cell
                 }
             }
+        } else if tableView == sBuildTableView {
+            // S_BUILD表格 - 使用按失败次数排序的数据
+            let sortedSBuilds = getSortedSBuilds()
+            if row < sortedSBuilds.count {
+                let sBuild = sortedSBuilds[row]
+                
+                if tableColumn.identifier == NSUserInterfaceItemIdentifier("sBuildCheckColumn") {
+                    // 复选框列（第一列）
+                    let cellIdentifier = NSUserInterfaceItemIdentifier("SBuildCheckCell")
+                    
+                    var cell: NSTableCellView
+                    
+                    if let reusedCell = tableView.makeView(withIdentifier: cellIdentifier, owner: self) as? NSTableCellView {
+                        cell = reusedCell
+                    } else {
+                        // 创建新单元格
+                        cell = NSTableCellView()
+                        cell.identifier = cellIdentifier
+                        
+                        // 创建复选框
+                        let checkBox = NSButton(checkboxWithTitle: "", target: self, action: #selector(sBuildCheckBoxToggled(_:)))
+                        checkBox.font = NSFont.systemFont(ofSize: 12)
+                        checkBox.translatesAutoresizingMaskIntoConstraints = false
+                        checkBox.setAccessibilityIdentifier("SBuildCheckBox_\(row)")
+                        
+                        cell.addSubview(checkBox)
+                        
+                        // 布局约束
+                        NSLayoutConstraint.activate([
+                            checkBox.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+                            checkBox.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 10)
+                        ])
+                    }
+                    
+                    // 设置复选框状态
+                    if let checkBox = cell.subviews.first(where: { $0 is NSButton }) as? NSButton {
+                        // 检查该S_BUILD是否被屏蔽
+                        checkBox.state = sBuildBlocked.contains(sBuild) ? .on : .off
+                        checkBox.tag = row
+                        // 确保复选框的action正确设置
+                        checkBox.target = self
+                        checkBox.action = #selector(sBuildCheckBoxToggled(_:))
+                    }
+                        
+                    return cell
+                } else if tableColumn.identifier == NSUserInterfaceItemIdentifier("sBuildCountColumn") {
+                    // 失败用例数量列（第二列）
+                    let cellIdentifier = NSUserInterfaceItemIdentifier("SBuildCountCell")
+                    
+                    var cell: NSTableCellView
+                    
+                    if let reusedCell = tableView.makeView(withIdentifier: cellIdentifier, owner: self) as? NSTableCellView {
+                        cell = reusedCell
+                    } else {
+                        // 创建新单元格
+                        cell = NSTableCellView()
+                        cell.identifier = cellIdentifier
+                        
+                        // 创建文本字段
+                        let textField = NSTextField()
+                        textField.isEditable = false
+                        textField.isSelectable = false
+                        textField.font = NSFont.systemFont(ofSize: 12)
+                        textField.alignment = .center
+                        textField.translatesAutoresizingMaskIntoConstraints = false
+                        
+                        cell.addSubview(textField)
+                        cell.textField = textField
+                        
+                        // 布局约束
+                        NSLayoutConstraint.activate([
+                            textField.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 4),
+                            textField.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -4),
+                            textField.topAnchor.constraint(equalTo: cell.topAnchor, constant: 4),
+                            textField.bottomAnchor.constraint(equalTo: cell.bottomAnchor, constant: -4)
+                        ])
+                    }
+                    
+                    // 设置文本内容 - 显示失败次数（使用标题行的数量）
+                    let sBuildFailures = sBuildToFailures[sBuild] ?? []
+                    cell.textField?.stringValue = "\(sBuildFailures.count)"
+                    
+                    return cell
+                } else if tableColumn.identifier == NSUserInterfaceItemIdentifier("sBuildColumn") {
+                    // S_BUILD列（第三列）
+                    let cellIdentifier = NSUserInterfaceItemIdentifier("SBuildCell")
+                    
+                    var cell: NSTableCellView
+                    
+                    if let reusedCell = tableView.makeView(withIdentifier: cellIdentifier, owner: self) as? NSTableCellView {
+                        cell = reusedCell
+                    } else {
+                        // 创建新单元格
+                        cell = NSTableCellView()
+                        cell.identifier = cellIdentifier
+                        
+                        // 创建文本字段
+                        let textField = NSTextField()
+                        textField.isEditable = false
+                        textField.isSelectable = true
+                        textField.font = NSFont.systemFont(ofSize: 12)
+                        textField.translatesAutoresizingMaskIntoConstraints = false
+                        
+                        cell.addSubview(textField)
+                        cell.textField = textField
+                        
+                        // 布局约束
+                        NSLayoutConstraint.activate([
+                            textField.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 8),
+                            textField.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -8),
+                            textField.topAnchor.constraint(equalTo: cell.topAnchor, constant: 4),
+                            textField.bottomAnchor.constraint(equalTo: cell.bottomAnchor, constant: -4)
+                        ])
+                    }
+                    
+                    // 设置文本内容
+                    cell.textField?.stringValue = sBuild
+                    
+                    return cell
+                }
+            }
         }
         
         return nil
@@ -1108,6 +1310,52 @@ extension CurrentFailFilterController: NSTableViewDelegate, NSTableViewDataSourc
             }
             if channelTableView != nil {
                 channelTableView.reloadData()
+            }
+            if sBuildTableView != nil {
+                sBuildTableView.reloadData()
+            }
+        }
+    }
+    
+    @objc private func sBuildCheckBoxToggled(_ sender: NSButton) {
+        let row = sender.tag
+        #if DEBUG
+        print("🔧 sBuildCheckBoxToggled: 行=\(row), state=\(sender.state)")
+        #endif
+        let sortedSBuilds = getSortedSBuilds()
+        if row < sortedSBuilds.count {
+            let sBuild = sortedSBuilds[row]
+            #if DEBUG
+            print("🔧 sBuildCheckBoxToggled: S_BUILD=\(sBuild)")
+            #endif
+            if sender.state == .on {
+                // 屏蔽该S_BUILD
+                sBuildBlocked.insert(sBuild)
+                #if DEBUG
+                print("🔧 屏蔽S_BUILD: \(sBuild)")
+                #endif
+            } else {
+                // 取消屏蔽该S_BUILD
+                sBuildBlocked.remove(sBuild)
+                #if DEBUG
+                print("🔧 取消屏蔽S_BUILD: \(sBuild)")
+                #endif
+            }
+            #if DEBUG
+            print("🔧 sBuildCheckBoxToggled: 当前屏蔽S_BUILD数量=\(sBuildBlocked.count)")
+            #endif
+            // 刷新所有表格
+            if failureCaseTableView != nil {
+                failureCaseTableView.reloadData()
+            }
+            if snTableView != nil {
+                snTableView.reloadData()
+            }
+            if channelTableView != nil {
+                channelTableView.reloadData()
+            }
+            if sBuildTableView != nil {
+                sBuildTableView.reloadData()
             }
         }
     }

@@ -137,6 +137,8 @@ extension HistoryWindowController: NSTableViewDelegate, NSTableViewDataSource {
                 cell.textField?.stringValue = components.count > 6 ? components[6] : ""
             case "通道号":
                 cell.textField?.stringValue = components.count > 7 ? components[7] : ""
+            case "S_BUILD":
+                cell.textField?.stringValue = components.count > 8 ? components[8] : ""
             default:
                 cell.textField?.stringValue = ""
             }
@@ -210,6 +212,9 @@ extension HistoryWindowController: NSTableViewDelegate, NSTableViewDataSource {
         case "通道号":
             // 从数据中提取通道号信息
             cell.textField?.stringValue = components.count > 7 ? components[7] : ""
+        case "S_BUILD":
+            // 从数据中提取 S_BUILD 信息
+            cell.textField?.stringValue = components.count > 8 ? components[8] : ""
         default:
             cell.textField?.stringValue = ""
         }
@@ -258,6 +263,12 @@ extension HistoryWindowController: NSTableViewDelegate, NSTableViewDataSource {
             return components.count > 4 ? components[4] : ""
         case "Value":
             return components.count > 5 ? components[5] : ""
+        case "SN":
+            return components.count > 6 ? components[6] : ""
+        case "通道号":
+            return components.count > 7 ? components[7] : ""
+        case "S_BUILD":
+            return components.count > 8 ? components[8] : ""
         default:
             return ""
         }

@@ -357,7 +357,7 @@ class AtlasDataProcessor {
         ]
     }
     
-    func getFailureSummary(snColumnName: String = "", channelColumnName: String = "") -> [String] {
+    func getFailureSummary(snColumnName: String = "", channelColumnName: String = "", sBuildColumnName: String = "") -> [String] {
         var result: [String] = []
         
         // 固定的标题行（与 infoRow 对应）
@@ -368,9 +368,10 @@ class AtlasDataProcessor {
             "List of Failing Tests"
         ]
         
-        // 查找 SN 和通道号列的索引
+        // 查找 SN、通道号和 S_BUILD 列的索引
         let snIndex = headerRow.firstIndex(of: snColumnName) ?? -1
         let channelIndex = headerRow.firstIndex(of: channelColumnName) ?? -1
+        let sBuildIndex = headerRow.firstIndex(of: sBuildColumnName) ?? -1
         
         // 遍历所有文件结果
         for fileResult in fileResults {
@@ -380,15 +381,16 @@ class AtlasDataProcessor {
                 let path = fileResult.filePathRow[0]
                 let failTests = fileResult.infoRow[11]
                 
-                // 从 infoRow 中获取 SN 和通道号
+                // 从 infoRow 中获取 SN、通道号和 S_BUILD
                 var sn = (snIndex >= 0 && snIndex < fileResult.infoRow.count) ? fileResult.infoRow[snIndex] : ""
                 var channel = (channelIndex >= 0 && channelIndex < fileResult.infoRow.count) ? fileResult.infoRow[channelIndex] : ""
+                var sBuild = (sBuildIndex >= 0 && sBuildIndex < fileResult.infoRow.count) ? fileResult.infoRow[sBuildIndex] : ""
                 
                 #if DEBUG
                 // 打印 debug 信息
-                print("🔍 getFailureSummary: snColumnName=\(snColumnName), channelColumnName=\(channelColumnName)")
+                print("🔍 getFailureSummary: snColumnName=\(snColumnName), channelColumnName=\(channelColumnName), sBuildColumnName=\(sBuildColumnName)")
                 // 打印从 infoRow 获取的结果
-                print("📋 从 infoRow 获取: sn=\(sn), channel=\(channel)")
+                print("📋 从 infoRow 获取: sn=\(sn), channel=\(channel), sBuild=\(sBuild)")
                 #endif
                 
                 // 如果 infoRow 中没有，尝试从不固定列（属性和测量）中获取
@@ -424,9 +426,25 @@ class AtlasDataProcessor {
                     }
                 }
                 
+                if sBuild.isEmpty {
+                    // 从属性字典中获取 S_BUILD
+                    if let sBuildValue = fileResult.attrDict[sBuildColumnName] {
+                        sBuild = sBuildValue
+                        #if DEBUG
+                        print("📋 从 attrDict 获取 S_BUILD: \(sBuild)")
+                        #endif
+                    } else if let sBuildValue = fileResult.measureDict[sBuildColumnName] {
+                        // 从测量字典中获取 S_BUILD
+                        sBuild = sBuildValue
+                        #if DEBUG
+                        print("📋 从 measureDict 获取 S_BUILD: \(sBuild)")
+                        #endif
+                    }
+                }
+                
                 #if DEBUG
                 // 打印最终结果
-                print("✅ 最终获取: sn=\(sn), channel=\(channel)")
+                print("✅ 最终获取: sn=\(sn), channel=\(channel), sBuild=\(sBuild)")
                 #endif
                 
                 // 按分号分割失败用例
@@ -436,7 +454,7 @@ class AtlasDataProcessor {
                 
                 if testCases.isEmpty {
                     // 如果没有具体的失败用例，保留一行
-                    result.append("\(time) | 无具体用例 | \(path) | | | | \(sn) | \(channel)")
+                    result.append("\(time) | 无具体用例 | \(path) | | | | \(sn) | \(channel) | \(sBuild)")
                 } else {
                     // 将每个失败用例单独作为一行
                     for testCase in testCases {
@@ -445,7 +463,7 @@ class AtlasDataProcessor {
                         let lowerLimit = fileResult.measureMeta[testCase]?["lower"] ?? ""
                         let value = fileResult.measureDict[testCase] ?? ""
                         
-                        result.append("\(time) | \(testCase) | \(path) | \(upperLimit) | \(lowerLimit) | \(value) | \(sn) | \(channel)")
+                        result.append("\(time) | \(testCase) | \(path) | \(upperLimit) | \(lowerLimit) | \(value) | \(sn) | \(channel) | \(sBuild)")
                     }
                 }
             }

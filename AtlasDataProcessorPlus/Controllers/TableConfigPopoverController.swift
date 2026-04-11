@@ -29,13 +29,15 @@ class TableConfigPopoverController: NSViewController {
     // 文本字段
     private var snTextField: NSTextField!
     private var channelTextField: NSTextField!
+    private var sBuildTextField: NSTextField!
     
     // 配置信息
     var sn: String = "PrimaryIdentity"
     var channel: String = "Fixture Channel ID"
+    var sBuild: String = "S_BUILD"
     
     // 回调闭包
-    var completionHandler: ((String, String) -> Void)?
+    var completionHandler: ((String, String, String) -> Void)?
     
     // 弹出式面板
     private weak var popover: NSPopover?
@@ -89,6 +91,19 @@ class TableConfigPopoverController: NSViewController {
         channelTextField.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(channelTextField)
         
+        // S_BUILD 标签
+        let sBuildLabel = NSTextField(labelWithString: "S_BUILD:")
+        sBuildLabel.font = NSFont.systemFont(ofSize: 14)
+        sBuildLabel.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(sBuildLabel)
+        
+        // S_BUILD 文本字段 - 使用自定义类支持粘贴操作
+        sBuildTextField = CustomTextField()
+        sBuildTextField.placeholderString = "S_BUILD"
+        sBuildTextField.font = NSFont.systemFont(ofSize: 14)
+        sBuildTextField.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(sBuildTextField)
+        
         // 按钮容器
         let buttonContainer = NSView()
         buttonContainer.translatesAutoresizingMaskIntoConstraints = false
@@ -134,8 +149,18 @@ class TableConfigPopoverController: NSViewController {
             channelTextField.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
             channelTextField.heightAnchor.constraint(equalToConstant: 24),
             
+            // S_BUILD 标签
+            sBuildLabel.topAnchor.constraint(equalTo: channelTextField.bottomAnchor, constant: 20),
+            sBuildLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            
+            // S_BUILD 文本字段
+            sBuildTextField.topAnchor.constraint(equalTo: channelTextField.bottomAnchor, constant: 16),
+            sBuildTextField.leadingAnchor.constraint(equalTo: sBuildLabel.trailingAnchor, constant: 10),
+            sBuildTextField.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            sBuildTextField.heightAnchor.constraint(equalToConstant: 24),
+            
             // 按钮容器
-            buttonContainer.topAnchor.constraint(equalTo: channelTextField.bottomAnchor, constant: 30),
+            buttonContainer.topAnchor.constraint(equalTo: sBuildTextField.bottomAnchor, constant: 30),
             buttonContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
             buttonContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
             buttonContainer.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -20),
@@ -168,9 +193,10 @@ class TableConfigPopoverController: NSViewController {
         // 获取输入值
         let snValue = snTextField.stringValue.trimmingCharacters(in: .whitespaces)
         let channelValue = channelTextField.stringValue.trimmingCharacters(in: .whitespaces)
+        let sBuildValue = sBuildTextField.stringValue.trimmingCharacters(in: .whitespaces)
         
         // 调用回调
-        completionHandler?(snValue, channelValue)
+        completionHandler?(snValue, channelValue, sBuildValue)
         
         // 关闭弹出式面板
         popover?.close()

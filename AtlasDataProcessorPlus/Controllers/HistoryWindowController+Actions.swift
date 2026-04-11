@@ -64,7 +64,7 @@ extension HistoryWindowController {
                 var csvRows: [String] = []
                 
                 // 添加表头
-                csvRows.append("文件路径,失败用例,测试时间,SN,通道号")
+                csvRows.append("file_path,test_item,test_time,SN,channel,S_BUILD")
                 
                 // 遍历所有分组（标题行）
                 for group in self?.groupedFailures ?? [] {
@@ -79,9 +79,10 @@ extension HistoryWindowController {
                     let time = components.count > 0 ? components[0] : ""
                     let sn = components.count > 6 ? components[6] : ""
                     let channel = components.count > 7 ? components[7] : ""
+                    let sBuild = components.count > 8 ? components[8] : ""
                     
                     // 构建 CSV 行
-                    let row = "\(group.filePath),\(failureCaseText),\(time),\(sn),\(channel)"
+                    let row = "\(group.filePath),\(failureCaseText),\(time),\(sn),\(channel),\(sBuild)"
                     csvRows.append(row)
                 }
                 
@@ -220,10 +221,11 @@ extension HistoryWindowController {
                     
                     // 获取统计信息
                     self.statistics = processor.getStatistics()
-                    // 从表格配置中获取 SN 和通道号的列名
+                    // 从表格配置中获取 SN、通道号和 S_BUILD 的列名
                     let snColumnName = self.tableConfig["sn"] ?? ""
                     let channelColumnName = self.tableConfig["channel"] ?? ""
-                    self.failures = processor.getFailureSummary(snColumnName: snColumnName, channelColumnName: channelColumnName)
+                    let sBuildColumnName = self.tableConfig["s_build"] ?? ""
+                    self.failures = processor.getFailureSummary(snColumnName: snColumnName, channelColumnName: channelColumnName, sBuildColumnName: sBuildColumnName)
                     
                     // 对失败记录按文件路径分组（应用屏蔽规则）
                     self.groupFailuresByFilePath()
@@ -322,38 +324,72 @@ extension HistoryWindowController {
         // 提取当前所有失败用例（排除默认屏蔽项）并统计出现次数
         var allFailureCases: Set<String> = []
         var failureCaseCounts: [String: Int] = [:]
-        var channelToFailures: [String: [String]] = [:]
-        var snToFailures: [String: [String]] = [:]
+        var channelToFailures: [String: [Any]] = [:]
+        var snToFailures: [String: [Any]] = [:]
+        var sBuildToFailures: [String: [Any]] = [:]
         // 新增：通道到失败用例内容行计数的映射
         var channelToFailureContentCounts: [String: [String: Int]] = [:]
         
         // 遍历每个分组（标题行）来构建 SN 和通道号映射（使用标题行计数）
         for (_, groupFailures) in filePathToFailures {
             if !groupFailures.isEmpty {
-                let firstFailure = groupFailures[0]
-                let parts = firstFailure.components(separatedBy: "|")
-                if parts.count >= 3 {
-                    // 第2个部分（索引1）是失败用例名称
-                    let failureCase = parts[1].trimmingCharacters(in: .whitespaces)
-                    // 排除空值、无具体用例和默认屏蔽项
-                    if !failureCase.isEmpty && failureCase != "无具体用例" && !defaultBlockedFailures.contains(failureCase) {
-                        allFailureCases.insert(failureCase)
+                // 收集当前分组（标题行）中的所有失败用例
+                var groupFailureCases: [String] = []
+                
+                // 提取通道号、SN和S_BUILD（从第一个失败记录中提取）
+                var channel = ""
+                var sn = ""
+                var sBuild = ""
+                
+                // 遍历分组中的所有失败记录
+                for (index, failure) in groupFailures.enumerated() {
+                    let parts = failure.components(separatedBy: " | ")
+                    if parts.count >= 3 {
+                        // 第2个部分（索引1）是失败用例名称
+                        let failureCase = parts[1].trimmingCharacters(in: .whitespaces)
                         
-                        // 提取通道号
-                        if parts.count >= 8 {
-                            let channel = parts[7].trimmingCharacters(in: .whitespaces)
-                            if !channel.isEmpty {
-                                channelToFailures[channel, default: []].append(failureCase)
+                        // 从第一个失败记录中提取通道号、SN和S_BUILD
+                        if index == 0 {
+                            // 提取通道号
+                            if parts.count >= 8 {
+                                channel = parts[7].trimmingCharacters(in: .whitespaces)
+                            }
+                            
+                            // 提取SN
+                            if parts.count >= 7 {
+                                sn = parts[6].trimmingCharacters(in: .whitespaces)
+                            }
+                            
+                            // 提取S_BUILD
+                            if parts.count >= 9 {
+                                sBuild = parts[8].trimmingCharacters(in: .whitespaces)
                             }
                         }
                         
-                        // 提取SN
-                        if parts.count >= 7 {
-                            let sn = parts[6].trimmingCharacters(in: .whitespaces)
-                            if !sn.isEmpty {
-                                snToFailures[sn, default: []].append(failureCase)
-                            }
+                        // 只有当失败用例不是"无具体用例"且不在默认屏蔽项中时，才添加到分组失败用例列表中
+                        if !failureCase.isEmpty && failureCase != "无具体用例" && !defaultBlockedFailures.contains(failureCase) {
+                            groupFailureCases.append(failureCase)
+                            // 添加到所有失败用例集合
+                            allFailureCases.insert(failureCase)
                         }
+                    }
+                }
+                
+                // 只有当分组中包含失败用例时，才添加到映射中
+                if !groupFailureCases.isEmpty {
+                    // 添加通道号到映射中
+                    if !channel.isEmpty {
+                        channelToFailures[channel, default: []].append(groupFailureCases.count == 1 ? groupFailureCases[0] : groupFailureCases)
+                    }
+                    
+                    // 添加SN到映射中
+                    if !sn.isEmpty {
+                        snToFailures[sn, default: []].append(groupFailureCases.count == 1 ? groupFailureCases[0] : groupFailureCases)
+                    }
+                    
+                    // 添加S_BUILD到映射中
+                    if !sBuild.isEmpty {
+                        sBuildToFailures[sBuild, default: []].append(groupFailureCases.count == 1 ? groupFailureCases[0] : groupFailureCases)
                     }
                 }
             }
@@ -361,7 +397,7 @@ extension HistoryWindowController {
         
         // 遍历所有失败记录（内容行）来统计失败用例出现次数（使用内容行计数）
         for failure in failures {
-            let parts = failure.components(separatedBy: "|")
+            let parts = failure.components(separatedBy: " | ")
             if parts.count >= 3 {
                 let failureCase = parts[1].trimmingCharacters(in: .whitespaces)
                 // 排除空值、无具体用例和默认屏蔽项
@@ -400,7 +436,7 @@ extension HistoryWindowController {
             for (_, groupFailures) in filePathToFailures {
                 if !groupFailures.isEmpty {
                     let firstFailure = groupFailures[0]
-                    let parts = firstFailure.components(separatedBy: "|")
+                    let parts = firstFailure.components(separatedBy: " | ")
                     if parts.count >= 3 {
                         let failureCase = parts[1].trimmingCharacters(in: .whitespaces)
                         if !failureCase.isEmpty && failureCase != "无具体用例" && !defaultBlockedFailures.contains(failureCase) {
@@ -434,11 +470,13 @@ extension HistoryWindowController {
         filterController.channelToFailures = channelToFailures
         filterController.channelToFailureContentCounts = channelToFailureContentCounts
         filterController.snToFailures = snToFailures
+        filterController.sBuildToFailures = sBuildToFailures
         
         // 传递之前的屏蔽状态
         filterController.failureCaseBlocked = sessionBlockedFailures
         filterController.snBlocked = sessionBlockedSNs
         filterController.channelBlocked = sessionBlockedChannels
+        filterController.sBuildBlocked = sessionBlockedSBuilds
         
         // 最后设置 blockedFailures
         filterController.blockedFailures = sessionBlockedFailures
@@ -446,17 +484,19 @@ extension HistoryWindowController {
         filterController.setPopover(popover)
         
         // 设置回调
-        filterController.completionHandler = { [weak self] (blockedFailures: Set<String>, blockedSNs: Set<String>, blockedChannels: Set<String>) in
+        filterController.completionHandler = { [weak self] (blockedFailures: Set<String>, blockedSNs: Set<String>, blockedChannels: Set<String>, blockedSBuilds: Set<String>) in
             guard let self = self else { return }
             
             // 更新会话屏蔽列表
             self.sessionBlockedFailures = blockedFailures
             self.sessionBlockedSNs = blockedSNs
             self.sessionBlockedChannels = blockedChannels
+            self.sessionBlockedSBuilds = blockedSBuilds
             
             print("📋 会话屏蔽的失败用例: \(self.sessionBlockedFailures)")
             print("📋 会话屏蔽的SN: \(self.sessionBlockedSNs)")
             print("📋 会话屏蔽的通道号: \(self.sessionBlockedChannels)")
+            print("📋 会话屏蔽的S_BUILD: \(self.sessionBlockedSBuilds)")
             
             // 重新生成分组数据（应用新的屏蔽设置）
             self.groupFailuresByFilePath()
@@ -495,15 +535,17 @@ extension HistoryWindowController {
         let configController = TableConfigPopoverController()
         configController.sn = tableConfig["sn"] ?? "PrimaryIdentity"
         configController.channel = tableConfig["channel"] ?? ""
+        configController.sBuild = tableConfig["s_build"] ?? "S_BUILD"
         configController.setPopover(popover)
         
         // 设置回调
-        configController.completionHandler = { [weak self] (sn, channel) in
+        configController.completionHandler = { [weak self] (sn, channel, sBuild) in
             guard let self = self else { return }
             
             // 更新表格配置
             self.tableConfig["sn"] = sn
             self.tableConfig["channel"] = channel
+            self.tableConfig["s_build"] = sBuild
             
             print("📋 表格配置: \(self.tableConfig)")
             
@@ -647,11 +689,12 @@ extension HistoryWindowController {
             let components = failure.components(separatedBy: " | ")
             let testCase = components.count > 1 ? components[1] : ""
             
-            // 提取SN和通道号
+            // 提取SN、通道号和S_BUILD
             let sn = components.count > 6 ? components[6] : ""
             let channel = components.count > 7 ? components[7] : ""
+            let sBuild = components.count > 8 ? components[8] : ""
             
-            // 跳过被屏蔽的失败用例、SN或通道号
+            // 跳过被屏蔽的失败用例、SN、通道号或S_BUILD
             if !testCase.isEmpty && blockedFailures.contains(testCase) {
                 continue
             }
@@ -659,6 +702,9 @@ extension HistoryWindowController {
                 continue
             }
             if !channel.isEmpty && sessionBlockedChannels.contains(channel) {
+                continue
+            }
+            if !sBuild.isEmpty && sessionBlockedSBuilds.contains(sBuild) {
                 continue
             }
             

@@ -239,7 +239,8 @@ extension HistoryWindowController {
             ("Value", 120),
             ("文件路径", 200),
             ("SN", 150),
-            ("通道号", 80)
+            ("通道号", 80),
+            ("S_BUILD", 120)
         ]
         
         for (title, width) in columns {
