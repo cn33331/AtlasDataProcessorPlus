@@ -52,7 +52,7 @@ extension HistoryWindowController {
         }
         
         let savePanel = NSSavePanel()
-        savePanel.allowedContentTypes = [.commaSeparatedText]
+        savePanel.allowedFileTypes = ["csv"]
         savePanel.nameFieldStringValue = "FailHeaders_\(Date().timeIntervalSince1970).csv"
         savePanel.message = "选择保存 Fail 标题行 CSV 文件的位置"
         
@@ -100,7 +100,7 @@ extension HistoryWindowController {
         guard let processor = processor else { return }
         
         let savePanel = NSSavePanel()
-        savePanel.allowedContentTypes = [.commaSeparatedText]
+        savePanel.allowedFileTypes = ["csv"]
         savePanel.nameFieldStringValue = "AtlasCombineData_\(processor.getTimestamp()).csv"
         savePanel.message = "选择保存 CSV 文件的位置"
         
@@ -132,7 +132,7 @@ extension HistoryWindowController {
         guard let processor = processor else { return }
         
         let savePanel = NSSavePanel()
-        savePanel.allowedContentTypes = [.commaSeparatedText]
+        savePanel.allowedFileTypes = ["csv"]
         savePanel.nameFieldStringValue = "AtlasCombineDataPlus_\(processor.getTimestamp()).csv"
         savePanel.message = "选择保存 CSV Plus 文件的位置"
         
@@ -164,7 +164,7 @@ extension HistoryWindowController {
         guard let processor = processor else { return }
         
         let savePanel = NSSavePanel()
-        savePanel.allowedContentTypes = [.json]
+        savePanel.allowedFileTypes = ["json"]
         savePanel.nameFieldStringValue = "AtlasCombineData_\(processor.getTimestamp()).json"
         savePanel.message = "选择导出 JSON 文件的位置"
         

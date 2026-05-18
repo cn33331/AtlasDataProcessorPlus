@@ -244,7 +244,7 @@ class ChannelViewController: NSViewController {
         let savePanel = NSSavePanel()
         savePanel.title = "导出到Excel"
         savePanel.message = "选择保存位置"
-        savePanel.allowedContentTypes = [.spreadsheet]
+        savePanel.allowedFileTypes = ["xlsx", "xls", "csv"]
         savePanel.nameFieldStringValue = "\(channel.name)_测试数据.xlsx"
         
         savePanel.begin { [weak self] result in
