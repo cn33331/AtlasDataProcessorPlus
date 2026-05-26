@@ -35,7 +35,14 @@ class ChannelViewController: NSViewController {
     
     var tableView: NSTableView! // 改为公开属性，方便 MainWindowController 访问
     private var titleLabel: NSTextField!
-    private var dataSource: [TestData] = []
+    
+    // 结构体用于同时存储 TestData 和它的原始索引
+    private struct TestDataWithIndex {
+        let testData: TestData
+        let originalIndex: Int
+    }
+    
+    private var dataSource: [TestDataWithIndex] = []
     private var mainLayout: NSVStackLayout!
     
     init(channel: Channel) {
@@ -156,6 +163,13 @@ class ChannelViewController: NSViewController {
         statusColumn.maxWidth = 70
         tableView.addTableColumn(statusColumn)
         
+        let rowNumberColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("rowNumber"))
+        rowNumberColumn.title = "#"
+        rowNumberColumn.width = 40
+        rowNumberColumn.minWidth = 30
+        rowNumberColumn.maxWidth = 50
+        tableView.addTableColumn(rowNumberColumn)
+        
         // 设置表格为滚动视图的内容
         scrollView.documentView = tableView
         tableView.sizeLastColumnToFit()
@@ -200,11 +214,14 @@ class ChannelViewController: NSViewController {
     }
     
     func updateTable() {
-        // 过滤数据
+        // 过滤数据并保留原始索引
         if showFailOnly {
-            dataSource = channel.testData.filter { $0.status == "FAIL" }
+            dataSource = channel.testData.enumerated()
+                .filter { $0.element.status == "FAIL" }
+                .map { TestDataWithIndex(testData: $0.element, originalIndex: $0.offset) }
         } else {
-            dataSource = channel.testData
+            dataSource = channel.testData.enumerated()
+                .map { TestDataWithIndex(testData: $0.element, originalIndex: $0.offset) }
         }
         
         tableView.reloadData()
@@ -227,8 +244,9 @@ class ChannelViewController: NSViewController {
         var text = ""
         for row in selectedRows {
             guard row < dataSource.count else { continue }
-            let testData = dataSource[row]
-            let rowText = "\(testData.testName)\t\(testData.upperLimit)\t\(testData.measurementValue)\t\(testData.lowerLimit)\t\(testData.measurementUnits)\t\(testData.status)"
+            let item = dataSource[row]
+            let testData = item.testData
+            let rowText = "\(item.originalIndex + 1)\t\(testData.testName)\t\(testData.upperLimit)\t\(testData.measurementValue)\t\(testData.lowerLimit)\t\(testData.measurementUnits)\t\(testData.status)"
             text += rowText + "\n"
         }
         
@@ -257,10 +275,11 @@ class ChannelViewController: NSViewController {
     private func exportDataToExcel(at url: URL) {
         // 实现实际的Excel导出逻辑
         // 可以使用第三方库如 CoreXLSX 或创建CSV文件
-        var csvContent = "testName,upperLimit,measurementValue,lowerLimit,measurementUnits,status\n"
+        var csvContent = "#,testName,upperLimit,measurementValue,lowerLimit,measurementUnits,status\n"
         
-        for testData in dataSource {
-            let row = "\(testData.testName),\(testData.upperLimit),\(testData.measurementValue),\(testData.lowerLimit),\(testData.measurementUnits),\(testData.status)\n"
+        for item in dataSource {
+            let testData = item.testData
+            let row = "\(item.originalIndex + 1),\(testData.testName),\(testData.upperLimit),\(testData.measurementValue),\(testData.lowerLimit),\(testData.measurementUnits),\(testData.status)\n"
             csvContent.append(row)
         }
         
@@ -307,7 +326,8 @@ extension ChannelViewController: NSTableViewDataSource {
     
     func tableView(_ tableView: NSTableView, objectValueFor tableColumn: NSTableColumn?, row: Int) -> Any? {
         guard row < dataSource.count else { return nil }
-        let testData = dataSource[row]
+        let item = dataSource[row]
+        let testData = item.testData
         guard let identifier = tableColumn?.identifier.rawValue else { return nil }
         
         switch identifier {
@@ -323,6 +343,8 @@ extension ChannelViewController: NSTableViewDataSource {
             return testData.measurementUnits
         case "status":
             return testData.status
+        case "rowNumber":
+            return item.originalIndex + 1  // 使用原始索引，从1开始
         default:
             return nil
         }
@@ -364,7 +386,8 @@ extension ChannelViewController: NSTableViewDelegate {
         
         // 设置文本样式
         if let textField = cell.textField {
-            let testData = dataSource[row]
+            let item = dataSource[row]
+            let testData = item.testData
             
             if identifier == "status" {
                 if testData.status == "PASS" {
@@ -379,6 +402,9 @@ extension ChannelViewController: NSTableViewDelegate {
                 textField.lineBreakMode = .byTruncatingTail
             } else if identifier == "measurementValue" {
                 textField.font = NSFont.systemFont(ofSize: 11, weight: .medium)
+            } else if identifier == "rowNumber" {
+                textField.font = NSFont.systemFont(ofSize: 10, weight: .bold)
+                textField.alignment = .center
             }
         }
         
@@ -388,7 +414,8 @@ extension ChannelViewController: NSTableViewDelegate {
     // ❌ 删除这个方法（不会被调用）在基于单元格模式下被调用
     func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
         let rowView = NSTableRowView()
-        let testData = dataSource[row]
+        let item = dataSource[row]
+        let testData = item.testData
         
         if testData.status == "FAIL" {
             rowView.backgroundColor = NSColor(red: 1.0, green: 0.85, blue: 0.85, alpha: 1.0)
@@ -400,7 +427,8 @@ extension ChannelViewController: NSTableViewDelegate {
     // ✅ 使用这个方法（会被调用）基于视图模式
     func tableView(_ tableView: NSTableView, didAdd rowView: NSTableRowView, forRow row: Int) {
         if row < dataSource.count {
-            let testData = dataSource[row]
+            let item = dataSource[row]
+            let testData = item.testData
             if testData.status == "FAIL" {
                 rowView.backgroundColor = NSColor(red: 1.0, green: 0.85, blue: 0.85, alpha: 1.0)
             }
