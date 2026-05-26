@@ -143,6 +143,8 @@ class HistoryWindowController: NSWindowController {
         super.windowDidLoad()
         setupUI()
         setupMouseTracking()
+        // 加载表格配置
+        loadTableConfig()
         #if DEBUG
         print("✅ HistoryWindowController: UI 设置完成")
         #endif
@@ -212,6 +214,8 @@ class HistoryWindowController: NSWindowController {
             #endif
             // 加载屏蔽的失败用例
             loadBlockedFailures()
+            // 加载表格配置
+            loadTableConfig()
             setupUI()
             setupMouseTracking()
         }

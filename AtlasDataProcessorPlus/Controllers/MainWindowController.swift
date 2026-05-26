@@ -7,7 +7,7 @@
 
 import Cocoa
 
-class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTabViewDelegate, NSSplitViewDelegate {
+class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTabViewDelegate, NSSplitViewDelegate, NSTextFieldDelegate {
     
     private let basePath = URL(fileURLWithPath: "/Users/gdlocal/Library/Logs/Atlas/active")
     private var dataReaderService: DataReaderService!
@@ -33,7 +33,11 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTab
 
     
     // 配置
-    private var maxRows: Int = 1000
+    private var maxRows: Int = AppConfig.shared.channelMaxRows {
+        didSet {
+            AppConfig.shared.channelMaxRows = maxRows
+        }
+    }
     private var autoScroll: Bool = true
     private var showFailOnly: Bool = false
     private var isSummaryVisible: Bool = true
@@ -257,6 +261,7 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTab
         maxRowsTextField.preferredMaxLayoutWidth = 60
         maxRowsTextField.alignment = .center
         maxRowsTextField.translatesAutoresizingMaskIntoConstraints = false
+        maxRowsTextField.delegate = self
         controlView.addSubview(maxRowsTextField)
         
         maxRowsStepper = NSStepper()
@@ -410,6 +415,26 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTab
         
         for (_, controller) in channelControllers {
             controller.channel.maxRows = maxRows
+        }
+    }
+    
+    // MARK: - NSTextFieldDelegate
+    
+    func controlTextDidEndEditing(_ notification: Notification) {
+        guard let textField = notification.object as? NSTextField, textField === maxRowsTextField else {
+            return
+        }
+        
+        if let value = Int(textField.stringValue), value >= 100 && value <= 10000 {
+            maxRows = value
+            maxRowsStepper.intValue = Int32(maxRows)
+            
+            for (_, controller) in channelControllers {
+                controller.channel.maxRows = maxRows
+            }
+        } else {
+            // 恢复为有效范围的值
+            maxRowsTextField.stringValue = "\(maxRows)"
         }
     }
     

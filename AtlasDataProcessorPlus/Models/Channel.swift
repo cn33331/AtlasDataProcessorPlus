@@ -16,12 +16,17 @@ class Channel {
     var totalCount: Int = 0
     var lastUpdate: String = "--"
     var testData: [TestData] = []
-    var maxRows: Int = 1000
+    var maxRows: Int {
+        didSet {
+            AppConfig.shared.channelMaxRows = maxRows
+        }
+    }
     var showFailOnly: Bool = false
     
     init(group: String, slot: String) {
         self.group = group
         self.slot = slot
+        self.maxRows = AppConfig.shared.channelMaxRows
     }
     
     var name: String {

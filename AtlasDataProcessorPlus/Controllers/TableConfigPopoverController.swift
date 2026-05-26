@@ -179,6 +179,7 @@ class TableConfigPopoverController: NSViewController {
         // 设置初始值
         snTextField.stringValue = sn
         channelTextField.stringValue = channel
+        sBuildTextField.stringValue = sBuild
     }
     
     @objc private func cancel() {
