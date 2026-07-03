@@ -34,6 +34,8 @@
 		AFA1398E2F2BC581006538C2 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA1398D2F2BC581006538C2 /* main.swift */; };
 		AFA139902F324459006538C2 /* HistoryWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA1398F2F324459006538C2 /* HistoryWindowController.swift */; };
 		AFA139922F324D1F006538C2 /* AtlasDataProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA139912F324D1F006538C2 /* AtlasDataProcessor.swift */; };
+		AFB318DE2FF6C09900E51637 /* TabbedToolWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFB318DD2FF6C09900E51637 /* TabbedToolWindowController.swift */; };
+		AFDFFDE72FF801ED00482B68 /* MonitorManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFDFFDE62FF801ED00482B68 /* MonitorManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -82,6 +84,8 @@
 		AFA1398D2F2BC581006538C2 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		AFA1398F2F324459006538C2 /* HistoryWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryWindowController.swift; sourceTree = "<group>"; };
 		AFA139912F324D1F006538C2 /* AtlasDataProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AtlasDataProcessor.swift; sourceTree = "<group>"; };
+		AFB318DD2FF6C09900E51637 /* TabbedToolWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabbedToolWindowController.swift; sourceTree = "<group>"; };
+		AFDFFDE62FF801ED00482B68 /* MonitorManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonitorManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -132,6 +136,7 @@
 		AFA138E62F2BA886006538C2 /* AtlasDataProcessorPlus */ = {
 			isa = PBXGroup;
 			children = (
+				AFDFFDE52FF801D300482B68 /* Managers */,
 				AFA139722F2BAFA7006538C2 /* Services */,
 				AFA139652F2BAF8A006538C2 /* Controllers */,
 				AFA139542F2BAF27006538C2 /* Models */,
@@ -188,6 +193,7 @@
 				AFA139682F2BAF9C006538C2 /* SummaryViewController.swift */,
 				AFA1397F2F2BB17E006538C2 /* NSVStackLayout.swift */,
 				AFA1398F2F324459006538C2 /* HistoryWindowController.swift */,
+				AFB318DD2FF6C09900E51637 /* TabbedToolWindowController.swift */,
 			);
 			path = Controllers;
 			sourceTree = "<group>";
@@ -198,6 +204,14 @@
 				AFA139732F2BAFB7006538C2 /* DataReaderService.swift */,
 			);
 			path = Services;
+			sourceTree = "<group>";
+		};
+		AFDFFDE52FF801D300482B68 /* Managers */ = {
+			isa = PBXGroup;
+			children = (
+				AFDFFDE62FF801ED00482B68 /* MonitorManager.swift */,
+			);
+			path = Managers;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -334,7 +348,9 @@
 				AF37A4812F7E99EA009B3016 /* TableConfigPopoverController.swift in Sources */,
 				AFA139902F324459006538C2 /* HistoryWindowController.swift in Sources */,
 				AF37A47F2F7D6E07009B3016 /* CurrentFailFilterController.swift in Sources */,
+				AFDFFDE72FF801ED00482B68 /* MonitorManager.swift in Sources */,
 				AFA139622F2BAF75006538C2 /* Channel.swift in Sources */,
+				AFB318DE2FF6C09900E51637 /* TabbedToolWindowController.swift in Sources */,
 				AFA139802F2BB17E006538C2 /* NSVStackLayout.swift in Sources */,
 				AF2CA1B32FC6011C001C9EAA /* AppConfig.swift in Sources */,
 				AFA138EA2F2BA886006538C2 /* ViewController.swift in Sources */,
@@ -532,7 +548,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
-				MARKETING_VERSION = 2.3;
+				MARKETING_VERSION = 2.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.bsd.AtlasDataProcessorPlus;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -562,7 +578,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
-				MARKETING_VERSION = 2.3;
+				MARKETING_VERSION = 2.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.bsd.AtlasDataProcessorPlus;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

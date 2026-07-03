@@ -16,8 +16,8 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "136"
             endingLineNumber = "136"
-            landmarkName = "windowDidLoad()"
-            landmarkType = "7">
+            landmarkName = "HistoryWindowController"
+            landmarkType = "3">
             <Locations>
                <Location
                   uuid = "27D3D281-60E4-482B-9C03-6BAA58635C1B - eaf242c45feef78e"

@@ -6,6 +6,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     var mainWindowController: MainWindowController?
     var historyWindowController: HistoryWindowController?
+    var tabbedToolWindowController: TabbedToolWindowController?
 
     override init() {
         super.init()
@@ -61,8 +62,41 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         #endif
     }
     
+    @objc public func showTabbedToolWindow(_ sender: Any?) {
+        #if DEBUG
+        print("🔍 AppDelegate: showTabbedToolWindow 被调用")
+        print("📌 tabbedToolWindowController 状态: \(tabbedToolWindowController == nil ? "nil" : "已存在")")
+        #endif
+        
+        if tabbedToolWindowController == nil {
+            #if DEBUG
+            print("➕ AppDelegate: 创建新的 TabbedToolWindowController")
+            #endif
+            tabbedToolWindowController = TabbedToolWindowController.createAndShow()
+        } else {
+            if let window = tabbedToolWindowController?.window, !window.isVisible {
+                #if DEBUG
+                print("🔄 AppDelegate: 显示已存在的 TabbedToolWindowController")
+                #endif
+                window.makeKeyAndOrderFront(sender)
+            } else {
+                #if DEBUG
+                print("🔄 AppDelegate: 隐藏 TabbedToolWindowController")
+                #endif
+                tabbedToolWindowController?.window?.orderOut(sender)
+            }
+        }
+        
+        #if DEBUG
+        print("✅ AppDelegate: showTabbedToolWindow 完成")
+        #endif
+    }
+    
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         print("🚀 应用启动开始 - AppDelegate 被调用！")
+        
+        // 启动监控管理器（后台持续运行）
+        MonitorManager.shared.startMonitoring()
         
         // 创建主窗口控制器
         mainWindowController = MainWindowController()
@@ -84,6 +118,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        return false
+    }
+    
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        let mainWindowVisible = mainWindowController?.window?.isVisible ?? false
+        if !mainWindowVisible {
+            mainWindowController?.window?.makeKeyAndOrderFront(nil)
+        }
         return true
     }
     

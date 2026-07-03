@@ -11,7 +11,7 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTab
     
     private let basePath = URL(fileURLWithPath: "/Users/gdlocal/Library/Logs/Atlas/active")
     private var dataReaderService: DataReaderService!
-    private var channelControllers: [String: ChannelViewController] = [:] // key: "group-slot"
+    var channelControllers: [String: ChannelViewController] = [:] // key: "group-slot"
     private var sharedScrollPosition: Int = 0 // 所有通道共享的滚动位置 滚动位置
     private var summaryViewController: SummaryViewController!
     
@@ -388,7 +388,6 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTab
     }
     
     @objc private func startMonitoring() {
-        clearAllData()
         dataReaderService.start()
         startButton.isEnabled = false
         stopButton.isEnabled = true
@@ -703,6 +702,6 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTab
 
 extension MainWindowController: NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
-        stopMonitoring()
+        // 不停止监控，允许后台继续运行
     }
 }

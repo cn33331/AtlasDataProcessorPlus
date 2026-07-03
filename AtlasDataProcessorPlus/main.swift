@@ -80,6 +80,17 @@ func setupApplicationMenu() {
     historyMenuItem.target = delegate
     fileMenu.addItem(historyMenuItem)
     
+    fileMenu.addItem(NSMenuItem.separator())
+    
+    // 添加汇总信息菜单项
+    let tabbedToolMenuItem = NSMenuItem(
+        title: "监控-汇总信息",
+        action: #selector(AppDelegate.showTabbedToolWindow(_:)),
+        keyEquivalent: "t"
+    )
+    tabbedToolMenuItem.target = delegate
+    fileMenu.addItem(tabbedToolMenuItem)
+    
     #if DEBUG
     print("📌 监控工具菜单项已添加")
     print("   - target: \(delegate)")
@@ -87,6 +98,9 @@ func setupApplicationMenu() {
     print("📌 历史数据菜单项已添加")
     print("   - target: \(delegate)")
     print("   - action: \(Selector("showHistoryWindow:"))")
+    print("📌 监控-汇总信息菜单项已添加")
+    print("   - target: \(delegate)")
+    print("   - action: \(Selector("showTabbedToolWindow:"))")
     #endif
     
     fileMenuItem.submenu = fileMenu
