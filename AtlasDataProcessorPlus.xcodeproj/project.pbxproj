@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AF081C5F2FF9F42F00AAA361 /* SummaryConfigPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF081C5E2FF9F42F00AAA361 /* SummaryConfigPanelController.swift */; };
 		AF2CA1B32FC6011C001C9EAA /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF2CA1B22FC6011C001C9EAA /* AppConfig.swift */; };
 		AF37A47D2F7D6701009B3016 /* BlockFailPopoverController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF37A47C2F7D6701009B3016 /* BlockFailPopoverController.swift */; };
 		AF37A47F2F7D6E07009B3016 /* CurrentFailFilterController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF37A47E2F7D6E07009B3016 /* CurrentFailFilterController.swift */; };
@@ -56,6 +57,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		AF081C5E2FF9F42F00AAA361 /* SummaryConfigPanelController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SummaryConfigPanelController.swift; sourceTree = "<group>"; };
 		AF2CA1B22FC6011C001C9EAA /* AppConfig.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
 		AF37A47C2F7D6701009B3016 /* BlockFailPopoverController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BlockFailPopoverController.swift; sourceTree = "<group>"; };
 		AF37A47E2F7D6E07009B3016 /* CurrentFailFilterController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CurrentFailFilterController.swift; sourceTree = "<group>"; };
@@ -182,6 +184,7 @@
 		AFA139652F2BAF8A006538C2 /* Controllers */ = {
 			isa = PBXGroup;
 			children = (
+				AF081C5E2FF9F42F00AAA361 /* SummaryConfigPanelController.swift */,
 				AF37A4802F7E99EA009B3016 /* TableConfigPopoverController.swift */,
 				AF37A47E2F7D6E07009B3016 /* CurrentFailFilterController.swift */,
 				AF37A47C2F7D6701009B3016 /* BlockFailPopoverController.swift */,
@@ -358,6 +361,7 @@
 				AFA1398E2F2BC581006538C2 /* main.swift in Sources */,
 				AF9DEF092F76C536009A399B /* HistoryWindowController+Table.swift in Sources */,
 				AF37A47D2F7D6701009B3016 /* BlockFailPopoverController.swift in Sources */,
+				AF081C5F2FF9F42F00AAA361 /* SummaryConfigPanelController.swift in Sources */,
 				AFA1396C2F2BAF9C006538C2 /* ChannelViewController.swift in Sources */,
 				AF9DEF0A2F76C536009A399B /* HistoryWindowController+Actions.swift in Sources */,
 				AFA1396F2F2BAF9C006538C2 /* SummaryViewController.swift in Sources */,
@@ -548,7 +552,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
-				MARKETING_VERSION = 2.4;
+				MARKETING_VERSION = 2.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.bsd.AtlasDataProcessorPlus;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -578,7 +582,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
-				MARKETING_VERSION = 2.4;
+				MARKETING_VERSION = 2.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.bsd.AtlasDataProcessorPlus;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

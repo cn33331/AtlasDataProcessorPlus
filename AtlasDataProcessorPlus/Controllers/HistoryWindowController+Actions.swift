@@ -222,9 +222,9 @@ extension HistoryWindowController {
                     // 获取统计信息
                     self.statistics = processor.getStatistics()
                     // 从表格配置中获取 SN、通道号和 S_BUILD 的列名
-                    let snColumnName = self.tableConfig["sn"] ?? ""
-                    let channelColumnName = self.tableConfig["channel"] ?? ""
-                    let sBuildColumnName = self.tableConfig["s_build"] ?? ""
+                    let snColumnName = AppConfig.shared.tableConfig["sn"] ?? ""
+                    let channelColumnName = AppConfig.shared.tableConfig["channel"] ?? ""
+                    let sBuildColumnName = AppConfig.shared.tableConfig["s_build"] ?? ""
                     self.failures = processor.getFailureSummary(snColumnName: snColumnName, channelColumnName: channelColumnName, sBuildColumnName: sBuildColumnName)
                     
                     // 对失败记录按文件路径分组（应用屏蔽规则）
@@ -367,7 +367,7 @@ extension HistoryWindowController {
                         }
                         
                         // 只有当失败用例不是"无具体用例"且不在默认屏蔽项中时，才添加到分组失败用例列表中
-                        if !failureCase.isEmpty && failureCase != "无具体用例" && !defaultBlockedFailures.contains(failureCase) {
+                        if !failureCase.isEmpty && failureCase != "无具体用例" && !AppConfig.shared.blockedFailures.contains(failureCase) {
                             groupFailureCases.append(failureCase)
                             // 添加到所有失败用例集合
                             allFailureCases.insert(failureCase)
@@ -401,7 +401,7 @@ extension HistoryWindowController {
             if parts.count >= 3 {
                 let failureCase = parts[1].trimmingCharacters(in: .whitespaces)
                 // 排除空值、无具体用例和默认屏蔽项
-                if !failureCase.isEmpty && failureCase != "无具体用例" && !defaultBlockedFailures.contains(failureCase) {
+                if !failureCase.isEmpty && failureCase != "无具体用例" && !AppConfig.shared.blockedFailures.contains(failureCase) {
                     // 添加到所有失败用例集合
                     allFailureCases.insert(failureCase)
                     // 统计出现次数（内容行计数）
@@ -427,7 +427,7 @@ extension HistoryWindowController {
             print("📋 失败用例出现次数（内容行计数）: \(failureCaseCounts)")
             print("📋 通道号数量: \(channelToFailures.keys.count)")
             print("📋 SN数量: \(snToFailures.keys.count)")
-            print("📋 默认屏蔽项: \(defaultBlockedFailures)")
+            print("📋 默认屏蔽项: \(AppConfig.shared.blockedFailures)")
             print("📋 标题行数量: \(filePathToFailures.keys.count)")
             print("📋 内容行总数: \(failures.count)")
             
@@ -439,7 +439,7 @@ extension HistoryWindowController {
                     let parts = firstFailure.components(separatedBy: " | ")
                     if parts.count >= 3 {
                         let failureCase = parts[1].trimmingCharacters(in: .whitespaces)
-                        if !failureCase.isEmpty && failureCase != "无具体用例" && !defaultBlockedFailures.contains(failureCase) {
+                        if !failureCase.isEmpty && failureCase != "无具体用例" && !AppConfig.shared.blockedFailures.contains(failureCase) {
                             titleRowCounts[failureCase, default: 0] += 1
                         }
                     }
@@ -533,24 +533,24 @@ extension HistoryWindowController {
         
         // 创建控制器
         let configController = TableConfigPopoverController()
-        configController.sn = tableConfig["sn"] ?? "PrimaryIdentity"
-        configController.channel = tableConfig["channel"] ?? ""
-        configController.sBuild = tableConfig["s_build"] ?? "S_BUILD"
+        configController.sn = AppConfig.shared.tableConfig["sn"] ?? "PrimaryIdentity"
+        configController.channel = AppConfig.shared.tableConfig["channel"] ?? ""
+        configController.sBuild = AppConfig.shared.tableConfig["s_build"] ?? "S_BUILD"
         configController.setPopover(popover)
         
         // 设置回调
-        configController.completionHandler = { [weak self] (sn, channel, sBuild) in
-            guard let self = self else { return }
-            
+        configController.completionHandler = { (sn, channel, sBuild) in
             // 更新表格配置
-            self.tableConfig["sn"] = sn
-            self.tableConfig["channel"] = channel
-            self.tableConfig["s_build"] = sBuild
+            var config = AppConfig.shared.tableConfig
+            config["sn"] = sn
+            config["channel"] = channel
+            config["s_build"] = sBuild
+            AppConfig.shared.tableConfig = config
             
-            print("📋 表格配置: \(self.tableConfig)")
+            print("📋 表格配置: \(AppConfig.shared.tableConfig)")
             
             // 保存到配置文件
-            self.saveTableConfig()
+            AppConfig.shared.saveConfigToFile()
         }
         
         // 设置内容视图
@@ -567,55 +567,24 @@ extension HistoryWindowController {
     
     // 从配置文件加载表格配置
     func loadTableConfig() {
-        do {
-            if FileManager.default.fileExists(atPath: tableConfigFilePath) {
-                let data = try Data(contentsOf: URL(fileURLWithPath: tableConfigFilePath))
-                if let config = try JSONSerialization.jsonObject(with: data) as? [String: String] {
-                    tableConfig = config
-                    print("📋 从配置文件加载表格配置: \(tableConfig)")
-                }
-            }
-        } catch {
-            print("❌ 加载表格配置失败: \(error)")
-        }
+        print("📋 从配置文件加载表格配置: \(AppConfig.shared.tableConfig)")
     }
     
     // 保存表格配置到配置文件
     func saveTableConfig() {
-        do {
-            let data = try JSONSerialization.data(withJSONObject: tableConfig, options: .prettyPrinted)
-            try data.write(to: URL(fileURLWithPath: tableConfigFilePath))
-            print("📋 保存表格配置到配置文件: \(tableConfig)")
-        } catch {
-            print("❌ 保存表格配置失败: \(error)")
-        }
+        AppConfig.shared.saveConfigToFile()
+        print("📋 保存表格配置到配置文件: \(AppConfig.shared.tableConfig)")
     }
     
     // 从配置文件加载默认屏蔽的失败用例
     func loadBlockedFailures() {
-        do {
-            if FileManager.default.fileExists(atPath: configFilePath) {
-                let data = try Data(contentsOf: URL(fileURLWithPath: configFilePath))
-                if let blockedArray = try JSONSerialization.jsonObject(with: data) as? [String] {
-                    defaultBlockedFailures = Set(blockedArray)
-                    print("📋 从配置文件加载默认屏蔽的失败用例: \(defaultBlockedFailures)")
-                }
-            }
-        } catch {
-            print("❌ 加载默认屏蔽失败用例失败: \(error)")
-        }
+        print("📋 从配置文件加载默认屏蔽的失败用例: \(AppConfig.shared.blockedFailures)")
     }
     
     // 保存默认屏蔽的失败用例到配置文件
     func saveBlockedFailures() {
-        do {
-            let blockedArray = Array(defaultBlockedFailures)
-            let data = try JSONSerialization.data(withJSONObject: blockedArray, options: .prettyPrinted)
-            try data.write(to: URL(fileURLWithPath: configFilePath))
-            print("📋 保存默认屏蔽的失败用例到配置文件: \(defaultBlockedFailures)")
-        } catch {
-            print("❌ 保存默认屏蔽失败用例失败: \(error)")
-        }
+        AppConfig.shared.saveConfigToFile()
+        print("📋 保存默认屏蔽的失败用例到配置文件: \(AppConfig.shared.blockedFailures)")
     }
     
     // 显示屏蔽fail项弹出式面板
@@ -632,27 +601,22 @@ extension HistoryWindowController {
         let popoverController = BlockFailPopoverController()
         
         // 设置初始数据
-        popoverController.blockedFailures = Array(defaultBlockedFailures)
+        popoverController.blockedFailures = Array(AppConfig.shared.blockedFailures)
         
         // 设置弹出式面板引用
         popoverController.setPopover(popover)
         
         // 设置回调
-        popoverController.completionHandler = { [weak self] (filteredFailures: [String]?) in
-            guard let self = self else { return }
-            
+        popoverController.completionHandler = { (filteredFailures: [String]?) in
             // 如果 filteredFailures 为 nil，表示用户取消操作
             if let failures = filteredFailures {
                 // 更新默认屏蔽列表
-                self.defaultBlockedFailures = Set(failures)
+                AppConfig.shared.blockedFailures = Set(failures)
                 
-                print("📋 默认屏蔽的失败用例: \(self.defaultBlockedFailures)")
+                print("📋 默认屏蔽的失败用例: \(AppConfig.shared.blockedFailures)")
                 
                 // 保存到配置文件
-                self.saveBlockedFailures()
-                
-                // 重新加载数据
-                self.tableView.reloadData()
+                AppConfig.shared.saveConfigToFile()
             } else {
                 print("📋 用户取消操作，不保存更改")
             }

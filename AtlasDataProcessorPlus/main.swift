@@ -91,6 +91,15 @@ func setupApplicationMenu() {
     tabbedToolMenuItem.target = delegate
     fileMenu.addItem(tabbedToolMenuItem)
     
+    // 添加汇总配置菜单项
+    let summaryConfigMenuItem = NSMenuItem(
+        title: "监控-汇总配置",
+        action: #selector(AppDelegate.showSummaryConfigPanel(_:)),
+        keyEquivalent: ""
+    )
+    summaryConfigMenuItem.target = delegate
+    fileMenu.addItem(summaryConfigMenuItem)
+    
     #if DEBUG
     print("📌 监控工具菜单项已添加")
     print("   - target: \(delegate)")

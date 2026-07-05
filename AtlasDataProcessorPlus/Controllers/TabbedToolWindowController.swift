@@ -58,6 +58,84 @@ class TabbedToolWindowController: NSWindowController, NSTableViewDataSource, NST
     }
     
     /**
+     更新配置后的刷新方法
+     
+     配置面板修改后调用此方法刷新窗口显示
+     */
+    func updateConfig() {
+        #if DEBUG
+        print("🔧 TabbedToolWindowController: updateConfig() 开始")
+        print("🔧 当前字体大小: \(currentFontSize), 字体颜色: \(AppConfig.shared.summaryFontColor)")
+        print("🔧 FAIL颜色: \(AppConfig.shared.summaryFailColor), PASS颜色: \(AppConfig.shared.summaryPassColor)")
+        print("🔧 表格行数: \(tableView.numberOfRows), 列数: \(tableView.tableColumns.count)")
+        #endif
+        
+        let fontSize = CGFloat(currentFontSize)
+        tableView.rowHeight = fontSize + 10
+        
+        let columnWidths = TabbedToolWindowController.calculateColumnWidths(fontSize: fontSize)
+        if let columns = tableView.tableColumns as? [NSTableColumn] {
+            columns[0].width = columnWidths["channel"]!
+            columns[1].width = columnWidths["status"]!
+            columns[2].width = columnWidths["fail"]!
+            columns[3].width = columnWidths["pass"]!
+            columns[4].width = columnWidths["lastUpdate"]!
+        }
+        
+        let newWidth = TabbedToolWindowController.calculateWindowWidth(fontSize: fontSize)
+        let newHeight = TabbedToolWindowController.calculateWindowHeight(fontSize: fontSize)
+        #if DEBUG
+        print("🔧 新窗口尺寸: \(newWidth) x \(newHeight)")
+        #endif
+        
+        if let window = window {
+            window.setFrame(NSRect(x: window.frame.origin.x, y: window.frame.origin.y, width: newWidth, height: newHeight), display: true)
+        }
+        
+        for column in tableView.tableColumns {
+            let identifier = column.identifier.rawValue
+            for row in 0..<tableView.numberOfRows {
+                if let cell = tableView.view(atColumn: tableView.column(withIdentifier: column.identifier), row: row, makeIfNecessary: true) as? NSTableCellView,
+                   let textField = cell.textField {
+                    let channels = getChannels()
+                    if row < channels.count {
+                        let channel = channels[row]
+                        
+                        if identifier == "status" {
+                            switch channel.status {
+                            case .running:
+                                textField.textColor = NSColor.blue
+                            case .waiting:
+                                textField.textColor = NSColor.gray
+                            case .ended:
+                                textField.textColor = NSColor.green
+                            case .stopped:
+                                textField.textColor = NSColor.red
+                            }
+                        } else if identifier == "fail" {
+                            textField.textColor = channel.failCount > 0 ? failColor : NSColor.green
+                        } else if identifier == "pass" {
+                            textField.textColor = passColor
+                        } else {
+                            textField.textColor = currentFontColor
+                        }
+                    } else {
+                        textField.textColor = currentFontColor
+                    }
+                    textField.font = NSFont.systemFont(ofSize: fontSize, weight: identifier == "fail" || identifier == "pass" ? .bold : .medium)
+                }
+            }
+        }
+        
+        tableView.reloadData()
+        tableView.needsDisplay = true
+        
+        #if DEBUG
+        print("🔧 TabbedToolWindowController: updateConfig() 完成")
+        #endif
+    }
+    
+    /**
      编码初始化方法（未实现）
      
      - Parameter coder: NSCoder 实例
@@ -82,8 +160,16 @@ class TabbedToolWindowController: NSWindowController, NSTableViewDataSource, NST
         
         let screen = NSScreen.main ?? NSScreen.screens.first
         let screenFrame = screen?.frame ?? NSRect(x: 0, y: 0, width: 1920, height: 1080)
-        let originX: CGFloat = 20
-        let originY = screenFrame.height - windowHeight - 20
+        
+        let configX = CGFloat(AppConfig.shared.summaryWindowX)
+        let configY = CGFloat(AppConfig.shared.summaryWindowY)
+        
+        var originX = configX
+        var originY = configY
+        
+        if configY > screenFrame.height {
+            originY = screenFrame.height - windowHeight - 20
+        }
         
         let window = NSWindow(
             contentRect: NSRect(x: originX, y: originY, width: windowWidth, height: windowHeight),
@@ -113,51 +199,80 @@ class TabbedToolWindowController: NSWindowController, NSTableViewDataSource, NST
     }
     
     /**
-     根据字体大小计算列宽度
+     动态计算每列的最大宽度
+     
+     根据当前通道数据的实际内容，计算每列需要的最大宽度
      
      - Parameter fontSize: 字体大小
-     - Parameter maxChars: 最大字符数
-     - Returns: 列宽度
+     - Returns: 各列宽度字典 [列标识符: 宽度]
      */
-    private static func calculateColumnWidth(fontSize: CGFloat, maxChars: Int) -> CGFloat {
+    private static func calculateColumnWidths(fontSize: CGFloat) -> [String: CGFloat] {
         let font = NSFont.systemFont(ofSize: fontSize, weight: .medium)
-        let testString = String(repeating: "w", count: maxChars)
-        let width = testString.size(withAttributes: [.font: font]).width
-        return width
+        let channels = MonitorManager.shared.getChannels()
+        
+        var maxWidths: [String: CGFloat] = [
+            "channel": 0,
+            "status": 0,
+            "fail": 0,
+            "pass": 0,
+            "lastUpdate": 0
+        ]
+        
+        for channel in channels {
+            let channelWidth = "\(channel.name)".size(withAttributes: [.font: font]).width
+            let statusWidth = "\(channel.status.rawValue)".size(withAttributes: [.font: font]).width
+            let failWidth = "\(channel.failCount)".size(withAttributes: [.font: font]).width
+            let passWidth = "\(channel.passCount)".size(withAttributes: [.font: font]).width
+            let updateWidth = "\(channel.lastUpdate)".size(withAttributes: [.font: font]).width
+            
+            maxWidths["channel"] = max(maxWidths["channel"]!, channelWidth)
+            maxWidths["status"] = max(maxWidths["status"]!, statusWidth)
+            maxWidths["fail"] = max(maxWidths["fail"]!, failWidth)
+            maxWidths["pass"] = max(maxWidths["pass"]!, passWidth)
+            maxWidths["lastUpdate"] = max(maxWidths["lastUpdate"]!, updateWidth)
+        }
+        
+        let spaceWidth = " ".size(withAttributes: [.font: font]).width
+        for key in maxWidths.keys {
+            maxWidths[key] = maxWidths[key]! + spaceWidth
+        }
+        
+        return maxWidths
     }
     
     /**
-     根据字体大小计算所有列宽度总和
+     动态计算窗口宽度
+     
+     根据实际通道数据计算所有列宽度总和
      
      - Parameter fontSize: 字体大小
      - Returns: 窗口宽度
      */
     private static func calculateWindowWidth(fontSize: CGFloat) -> CGFloat {
-        let channelWidth = calculateColumnWidth(fontSize: fontSize, maxChars: 13)
-        let statusWidth = calculateColumnWidth(fontSize: fontSize, maxChars: 5)
-        let failWidth = calculateColumnWidth(fontSize: fontSize, maxChars: 4)
-        let passWidth = calculateColumnWidth(fontSize: fontSize, maxChars: 4)
-        let updateWidth = calculateColumnWidth(fontSize: fontSize, maxChars: 8)
-        return channelWidth + statusWidth + failWidth + passWidth + updateWidth
+        let widths = calculateColumnWidths(fontSize: fontSize)
+        return widths.values.reduce(0, +) * 2
     }
     
     /**
      配置窗口属性
      
-     设置窗口为全局置顶、可拖动、透明背景、无阴影。
+     设置窗口为全局置顶、透明背景、无阴影。
+     窗口不可拖动，位置通过配置面板管理。
+     设置 ignoresMouseEvents 实现鼠标穿透，不影响下方应用操作。
      */
     private func setupWindow() {
         window?.level = .floating
-        window?.isMovableByWindowBackground = true
         window?.isOpaque = false
         window?.backgroundColor = NSColor.clear
         window?.hasShadow = false
+        window?.ignoresMouseEvents = true
     }
     
     /**
      初始化界面组件
      
-     创建透明的内容视图、关闭按钮、拖动条和表格视图，配置自动布局约束。
+     创建透明的内容视图和表格视图，配置自动布局约束。
+     配置项（字体大小、颜色、位置）通过独立配置面板管理。
      */
     private func setupUI() {
         guard let contentView = window?.contentView else { return }
@@ -178,31 +293,6 @@ class TabbedToolWindowController: NSWindowController, NSTableViewDataSource, NST
             mainView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor)
         ])
         
-        // 创建关闭按钮（使用 NSTextField 实现可点击效果）
-        closeButton = NSTextField(labelWithString: "×")
-        closeButton.translatesAutoresizingMaskIntoConstraints = false
-        closeButton.font = NSFont.systemFont(ofSize: CGFloat(currentFontSize + 2), weight: .bold)
-        closeButton.textColor = NSColor.gray
-        closeButton.isEditable = false
-        closeButton.isSelectable = false
-        closeButton.isBordered = false
-        closeButton.drawsBackground = false
-        closeButton.sizeToFit()
-        closeButton.wantsLayer = true
-        
-        // 添加点击手势
-        let tapGesture = NSClickGestureRecognizer(target: self, action: #selector(closeWindow))
-        closeButton.addGestureRecognizer(tapGesture)
-        
-        mainView.addSubview(closeButton)
-        
-        // 创建拖动条（用于移动窗口）
-        let dragBar = NSView()
-        dragBar.translatesAutoresizingMaskIntoConstraints = false
-        dragBar.wantsLayer = true
-        dragBar.layer?.backgroundColor = NSColor.clear.cgColor
-        mainView.addSubview(dragBar)
-        
         // 创建滚动视图
         let scrollView = NSScrollView()
         scrollView.translatesAutoresizingMaskIntoConstraints = false
@@ -212,17 +302,9 @@ class TabbedToolWindowController: NSWindowController, NSTableViewDataSource, NST
         mainView.addSubview(scrollView)
         
         NSLayoutConstraint.activate([
-            closeButton.trailingAnchor.constraint(equalTo: mainView.trailingAnchor, constant: -8),
-            closeButton.topAnchor.constraint(equalTo: mainView.topAnchor, constant: 8),
-            
-            dragBar.leadingAnchor.constraint(equalTo: mainView.leadingAnchor),
-            dragBar.trailingAnchor.constraint(equalTo: mainView.trailingAnchor),
-            dragBar.topAnchor.constraint(equalTo: mainView.topAnchor),
-            dragBar.heightAnchor.constraint(equalToConstant: CGFloat(currentFontSize + 10)),
-            
             scrollView.leadingAnchor.constraint(equalTo: mainView.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: mainView.trailingAnchor),
-            scrollView.topAnchor.constraint(equalTo: dragBar.bottomAnchor),
+            scrollView.topAnchor.constraint(equalTo: mainView.topAnchor),
             scrollView.bottomAnchor.constraint(equalTo: mainView.bottomAnchor)
         ])
         
@@ -238,56 +320,28 @@ class TabbedToolWindowController: NSWindowController, NSTableViewDataSource, NST
         tableView.headerView = nil
         scrollView.documentView = tableView
         
-        // 右键菜单
-        let menu = NSMenu()
-        let fontSizeItem = NSMenuItem(title: "字体大小", action: nil, keyEquivalent: "")
-        let fontSizeSubmenu = NSMenu()
-        for size in [10, 12, 14, 16, 18, 20, 22, 24] {
-            let item = NSMenuItem(title: "\(size)", action: #selector(setFontSize(_:)), keyEquivalent: "")
-            item.representedObject = size
-            fontSizeSubmenu.addItem(item)
-        }
-        fontSizeItem.submenu = fontSizeSubmenu
-        menu.addItem(fontSizeItem)
-        
-        let fontColorItem = NSMenuItem(title: "字体颜色", action: nil, keyEquivalent: "")
-        let fontColorSubmenu = NSMenu()
-        let colors = [("黑色", "#000000"), ("白色", "#FFFFFF"), ("灰色", "#808080"), ("蓝色", "#0000FF")]
-        for (name, hex) in colors {
-            let item = NSMenuItem(title: name, action: #selector(setFontColor(_:)), keyEquivalent: "")
-            item.representedObject = hex
-            fontColorSubmenu.addItem(item)
-        }
-        fontColorItem.submenu = fontColorSubmenu
-        menu.addItem(fontColorItem)
-        
-        menu.addItem(NSMenuItem.separator())
-        
-        let closeItem = NSMenuItem(title: "关闭", action: #selector(closeWindow), keyEquivalent: "")
-        menu.addItem(closeItem)
-        
-        tableView.menu = menu
-        
         // 添加列：通道、状态、FAIL、PASS、最后更新
         let fontSize = CGFloat(currentFontSize)
+        let columnWidths = TabbedToolWindowController.calculateColumnWidths(fontSize: fontSize)
+        
         let channelColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("channel"))
-        channelColumn.width = TabbedToolWindowController.calculateColumnWidth(fontSize: fontSize, maxChars: 13)
+        channelColumn.width = columnWidths["channel"]!
         tableView.addTableColumn(channelColumn)
         
         let statusColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("status"))
-        statusColumn.width = TabbedToolWindowController.calculateColumnWidth(fontSize: fontSize, maxChars: 5)
+        statusColumn.width = columnWidths["status"]!
         tableView.addTableColumn(statusColumn)
         
         let failColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("fail"))
-        failColumn.width = TabbedToolWindowController.calculateColumnWidth(fontSize: fontSize, maxChars: 4)
+        failColumn.width = columnWidths["fail"]!
         tableView.addTableColumn(failColumn)
         
         let passColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("pass"))
-        passColumn.width = TabbedToolWindowController.calculateColumnWidth(fontSize: fontSize, maxChars: 4)
+        passColumn.width = columnWidths["pass"]!
         tableView.addTableColumn(passColumn)
         
         let updateColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("lastUpdate"))
-        updateColumn.width = TabbedToolWindowController.calculateColumnWidth(fontSize: fontSize, maxChars: 8)
+        updateColumn.width = columnWidths["lastUpdate"]!
         tableView.addTableColumn(updateColumn)
     }
     
@@ -295,11 +349,29 @@ class TabbedToolWindowController: NSWindowController, NSTableViewDataSource, NST
      设置数据观察者
      
      监听 MonitorManager 的数据更新回调，刷新表格显示。
+     数据更新时重新计算列宽，确保内容完整显示。
      */
     private func setupDataObserver() {
         MonitorManager.shared.onDataUpdate = { [weak self] in
             DispatchQueue.main.async {
-                self?.tableView.reloadData()
+                guard let self = self else { return }
+                self.tableView.reloadData()
+                
+                let fontSize = CGFloat(self.currentFontSize)
+                let columnWidths = TabbedToolWindowController.calculateColumnWidths(fontSize: fontSize)
+                if let columns = self.tableView.tableColumns as? [NSTableColumn] {
+                    columns[0].width = columnWidths["channel"]!
+                    columns[1].width = columnWidths["status"]!
+                    columns[2].width = columnWidths["fail"]!
+                    columns[3].width = columnWidths["pass"]!
+                    columns[4].width = columnWidths["lastUpdate"]!
+                }
+                
+                let newWidth = TabbedToolWindowController.calculateWindowWidth(fontSize: fontSize)
+                let newHeight = TabbedToolWindowController.calculateWindowHeight(fontSize: fontSize)
+                if let window = self.window {
+                    window.setFrame(NSRect(x: window.frame.origin.x, y: window.frame.origin.y, width: newWidth, height: newHeight), display: true)
+                }
             }
         }
     }
@@ -317,12 +389,13 @@ class TabbedToolWindowController: NSWindowController, NSTableViewDataSource, NST
             
             // 更新列宽度
             let fontSize = CGFloat(size)
+            let columnWidths = TabbedToolWindowController.calculateColumnWidths(fontSize: fontSize)
             if let columns = tableView.tableColumns as? [NSTableColumn] {
-                columns[0].width = TabbedToolWindowController.calculateColumnWidth(fontSize: fontSize, maxChars: 13)
-                columns[1].width = TabbedToolWindowController.calculateColumnWidth(fontSize: fontSize, maxChars: 5)
-                columns[2].width = TabbedToolWindowController.calculateColumnWidth(fontSize: fontSize, maxChars: 4)
-                columns[3].width = TabbedToolWindowController.calculateColumnWidth(fontSize: fontSize, maxChars: 4)
-                columns[4].width = TabbedToolWindowController.calculateColumnWidth(fontSize: fontSize, maxChars: 8)
+                columns[0].width = columnWidths["channel"]!
+                columns[1].width = columnWidths["status"]!
+                columns[2].width = columnWidths["fail"]!
+                columns[3].width = columnWidths["pass"]!
+                columns[4].width = columnWidths["lastUpdate"]!
             }
             
             tableView.reloadData()
@@ -433,32 +506,34 @@ class TabbedToolWindowController: NSWindowController, NSTableViewDataSource, NST
         }
         
         let cellIdentifier = NSUserInterfaceItemIdentifier(identifier)
-        let cell = tableView.makeView(withIdentifier: cellIdentifier, owner: self) as? NSTableCellView ?? {
+        var cell = tableView.makeView(withIdentifier: cellIdentifier, owner: self) as? NSTableCellView
+        
+        if cell == nil {
             let newCell = NSTableCellView()
             newCell.identifier = cellIdentifier
             let textField = NSTextField(labelWithString: "")
             textField.isEditable = false
             textField.isBordered = false
             textField.drawsBackground = false
-            textField.alignment = .center
+            textField.alignment = .left
             newCell.textField = textField
             newCell.addSubview(textField)
             
             textField.translatesAutoresizingMaskIntoConstraints = false
             NSLayoutConstraint.activate([
-                textField.leadingAnchor.constraint(equalTo: newCell.leadingAnchor, constant: 4),
-                textField.trailingAnchor.constraint(equalTo: newCell.trailingAnchor, constant: -4),
+                textField.leadingAnchor.constraint(equalTo: newCell.leadingAnchor),
+                textField.trailingAnchor.constraint(equalTo: newCell.trailingAnchor),
                 textField.centerYAnchor.constraint(equalTo: newCell.centerYAnchor)
             ])
             
-            return newCell
-        }()
-        
-        if let value = self.tableView(tableView, objectValueFor: tableColumn, row: row) {
-            cell.textField?.stringValue = "\(value)"
+            cell = newCell
         }
         
-        if let textField = cell.textField {
+        if let value = self.tableView(tableView, objectValueFor: tableColumn, row: row) {
+            cell?.textField?.stringValue = "\(value)"
+        }
+        
+        if let textField = cell?.textField {
             textField.font = NSFont.systemFont(ofSize: CGFloat(currentFontSize), weight: .medium)
             
             let channels = getChannels()
@@ -488,6 +563,12 @@ class TabbedToolWindowController: NSWindowController, NSTableViewDataSource, NST
             } else {
                 textField.textColor = currentFontColor
             }
+            
+            // #if DEBUG
+            // if row == 0 && identifier == "channel" {
+            //     print("🔧 tableView:viewFor:row: 行0,列\(identifier) - 字体大小:\(currentFontSize), 颜色:\(textField.textColor?.toHexString() ?? "nil")")
+            // }
+            // #endif
         }
         
         return cell

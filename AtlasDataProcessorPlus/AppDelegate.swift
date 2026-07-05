@@ -7,6 +7,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var mainWindowController: MainWindowController?
     var historyWindowController: HistoryWindowController?
     var tabbedToolWindowController: TabbedToolWindowController?
+    var summaryConfigPanelController: SummaryConfigPanelController?
 
     override init() {
         super.init()
@@ -89,6 +90,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         #if DEBUG
         print("✅ AppDelegate: showTabbedToolWindow 完成")
+        #endif
+    }
+    
+    @objc public func showSummaryConfigPanel(_ sender: Any?) {
+        #if DEBUG
+        print("🔍 AppDelegate: showSummaryConfigPanel 被调用")
+        #endif
+        
+        summaryConfigPanelController = SummaryConfigPanelController(delegate: tabbedToolWindowController)
+        summaryConfigPanelController?.showWindow(sender)
+        
+        #if DEBUG
+        print("✅ AppDelegate: showSummaryConfigPanel 完成")
         #endif
     }
     

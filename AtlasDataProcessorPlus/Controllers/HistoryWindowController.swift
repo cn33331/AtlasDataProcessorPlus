@@ -66,9 +66,6 @@ class HistoryWindowController: NSWindowController {
     // 表格视图
     var tableView: NSTableView!
     
-    // 默认屏蔽的失败用例列表（通过默认屏蔽项按钮添加）
-    var defaultBlockedFailures: Set<String> = []
-    
     // 会话屏蔽的失败用例列表（通过右键菜单临时屏蔽）
     var sessionBlockedFailures: Set<String> = []
     
@@ -83,33 +80,7 @@ class HistoryWindowController: NSWindowController {
     
     // 合并的屏蔽列表（用于实际过滤）
     var blockedFailures: Set<String> {
-        return defaultBlockedFailures.union(sessionBlockedFailures)
-    }
-    
-    // 表格配置信息
-    var tableConfig: [String: String] = [
-        "sn": "PrimaryIdentity",
-        "channel": "Fixture Channel ID",
-        "s_build": "S_BUILD"
-    ]
-    
-    // 表格配置文件路径
-    var tableConfigFilePath: String {
-        let appSupportDir = NSSearchPathForDirectoriesInDomains(.applicationSupportDirectory, .userDomainMask, true)[0]
-        let configDir = appSupportDir + "/AtlasDataProcessor"
-        try? FileManager.default.createDirectory(atPath: configDir, withIntermediateDirectories: true, attributes: nil)
-        return configDir + "/table_config.json"
-    }
-    
-    // 配置文件路径
-    internal var configFilePath: String {
-        let fileManager = FileManager.default
-        guard let appSupportDir = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
-            return ""
-        }
-        let appDir = appSupportDir.appendingPathComponent("AtlasDataProcessor", isDirectory: true)
-        try? fileManager.createDirectory(at: appDir, withIntermediateDirectories: true)
-        return appDir.appendingPathComponent("blocked_failures.json").path
+        return AppConfig.shared.blockedFailures.union(sessionBlockedFailures)
     }
     
     // 操作按钮
