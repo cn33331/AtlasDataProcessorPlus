@@ -10,6 +10,7 @@ import Cocoa
 class SummaryConfigPanelController: NSWindowController {
     
     private var fontSizePopUp: NSPopUpButton!
+    private var columnsPopUp: NSPopUpButton!
     private var fontColorWell: NSColorWell!
     private var failColorWell: NSColorWell!
     private var passColorWell: NSColorWell!
@@ -78,6 +79,14 @@ class SummaryConfigPanelController: NSWindowController {
         for size in [10, 12, 14, 16, 18, 20, 22, 24] {
             fontSizePopUp.addItem(withTitle: "\(size)")
         }
+        
+        let columnsLabel = NSTextField(labelWithString: "显示列数:")
+        columnsLabel.translatesAutoresizingMaskIntoConstraints = false
+        
+        columnsPopUp = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 120, height: 25))
+        columnsPopUp.translatesAutoresizingMaskIntoConstraints = false
+        columnsPopUp.addItem(withTitle: "3列 (通道/状态/FAIL)")
+        columnsPopUp.addItem(withTitle: "5列 (全部)")
         
         let fontColorLabel = NSTextField(labelWithString: "字体颜色:")
         fontColorLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -208,12 +217,14 @@ class SummaryConfigPanelController: NSWindowController {
         verticalStack.spacing = 16
         
         let fontSizeRow = createRowStack(label: fontSizeLabel, field: fontSizePopUp)
+        let columnsRow = createRowStack(label: columnsLabel, field: columnsPopUp)
         let fontColorRow = createRowStack(label: fontColorLabel, field: fontColorWell)
         let failColorRow = createRowStack(label: failColorLabel, field: failColorWell)
         let passColorRow = createRowStack(label: passColorLabel, field: passColorWell)
         let positionRow = createRowStack(label: positionLabel, field: positionControlStack)
         
         verticalStack.addArrangedSubview(fontSizeRow)
+        verticalStack.addArrangedSubview(columnsRow)
         verticalStack.addArrangedSubview(fontColorRow)
         verticalStack.addArrangedSubview(failColorRow)
         verticalStack.addArrangedSubview(passColorRow)
@@ -233,6 +244,7 @@ class SummaryConfigPanelController: NSWindowController {
     
     private func loadCurrentConfig() {
         fontSizePopUp.selectItem(withTitle: "\(AppConfig.shared.summaryFontSize)")
+        columnsPopUp.selectItem(at: AppConfig.shared.summaryColumns == 3 ? 0 : 1)
         fontColorWell.color = NSColor(hexString: AppConfig.shared.summaryFontColor)
         failColorWell.color = NSColor(hexString: AppConfig.shared.summaryFailColor)
         passColorWell.color = NSColor(hexString: AppConfig.shared.summaryPassColor)
@@ -259,6 +271,12 @@ class SummaryConfigPanelController: NSWindowController {
             print("🔧 字体大小: \(size)")
             #endif
         }
+        
+        let columns = columnsPopUp.indexOfSelectedItem == 0 ? 3 : 5
+        AppConfig.shared.summaryColumns = columns
+        #if DEBUG
+        print("🔧 显示列数: \(columns)")
+        #endif
         
         let fontColorHex = fontColorWell.color.toHexString()
         let failColorHex = failColorWell.color.toHexString()

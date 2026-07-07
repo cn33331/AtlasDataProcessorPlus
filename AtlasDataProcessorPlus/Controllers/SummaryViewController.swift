@@ -156,18 +156,23 @@ class SummaryViewController: NSViewController {
         DispatchQueue.main.async {
             if let index = self.dataSource.firstIndex(where: { $0.name == channel.name }) {
                 self.dataSource[index] = channel
-                // 只更新对应行
                 let columns = IndexSet(0..<self.tableView.numberOfColumns)
                 self.tableView.reloadData(forRowIndexes: IndexSet(integer: index), columnIndexes: columns)
             } else {
                 self.dataSource.append(channel)
-                // 插入新行
-                self.tableView.insertRows(at: IndexSet(integer: self.dataSource.count - 1), withAnimation: .slideDown)
-            }
-            
-            // 滚动到最后一行
-            if self.dataSource.count > 0 {
-                self.tableView.scrollRowToVisible(self.dataSource.count - 1)
+                self.dataSource.sort { channel1, channel2 in
+                    let group1 = Int(channel1.group.replacingOccurrences(of: "group", with: "")) ?? 0
+                    let group2 = Int(channel2.group.replacingOccurrences(of: "group", with: "")) ?? 0
+                    if group1 != group2 {
+                        return group1 < group2
+                    }
+                    let slot1 = Int(channel1.slot.replacingOccurrences(of: "slot", with: "")) ?? 0
+                    let slot2 = Int(channel2.slot.replacingOccurrences(of: "slot", with: "")) ?? 0
+                    return slot1 < slot2
+                }
+                if let newIndex = self.dataSource.firstIndex(where: { $0.name == channel.name }) {
+                    self.tableView.insertRows(at: IndexSet(integer: newIndex), withAnimation: .slideDown)
+                }
             }
         }
     }
@@ -182,14 +187,21 @@ class SummaryViewController: NSViewController {
                     rowsToUpdate.insert(index)
                 } else {
                     self.dataSource.append(channel)
-                    rowsToUpdate.insert(self.dataSource.count - 1)
                 }
             }
             
-            if !rowsToUpdate.isEmpty {
-                let columns = IndexSet(0..<self.tableView.numberOfColumns)
-                self.tableView.reloadData(forRowIndexes: rowsToUpdate, columnIndexes: columns)
+            self.dataSource.sort { channel1, channel2 in
+                let group1 = Int(channel1.group.replacingOccurrences(of: "group", with: "")) ?? 0
+                let group2 = Int(channel2.group.replacingOccurrences(of: "group", with: "")) ?? 0
+                if group1 != group2 {
+                    return group1 < group2
+                }
+                let slot1 = Int(channel1.slot.replacingOccurrences(of: "slot", with: "")) ?? 0
+                let slot2 = Int(channel2.slot.replacingOccurrences(of: "slot", with: "")) ?? 0
+                return slot1 < slot2
             }
+            
+            self.tableView.reloadData()
         }
     }
     

@@ -6,22 +6,32 @@
 AtlasDataProcessorPlus/
 ├── AtlasDataProcessorPlus/           # 主应用代码
 │   ├── Controllers/                 # 控制器层
-│   │   ├── MainWindowController.swift
-│   │   ├── ChannelViewController.swift
-│   │   ├── SummaryViewController.swift
-│   │   ├── HistoryWindowController.swift
+│   │   ├── MainWindowController.swift      # 主窗口控制器
+│   │   ├── ChannelViewController.swift       # 监控主窗口通道视图控制器
+│   │   ├── SummaryViewController.swift       # 监控主窗口汇总视图控制器
+│   │   ├── SummaryConfigPanelController.swift    # 监控主窗口配置面板
+│   │   ├── TabbedToolWindowController.swift      # 监控汇总透明悬浮窗口
+│   │   ├── TableConfigPopoverController.swift    # 表格配置弹出面板-透明悬浮窗口
+│   │   ├── HistoryWindowController.swift         # 历史窗口控制器
+│   │   ├── HistoryWindowController+Actions.swift # 历史窗口操作逻辑
+│   │   ├── HistoryWindowController+Table.swift   # 历史窗口表格逻辑
+│   │   ├── HistoryWindowController+UI.swift      # 历史窗口UI布局
+│   │   ├── CurrentFailFilterController.swift     # 当前FAIL筛选控制器-历史窗口
+│   │   ├── BlockFailPopoverController.swift      # 默认屏蔽项弹出面板-历史窗口
 │   │   └── NSVStackLayout.swift
 │   ├── Models/                      # 数据模型层
 │   │   ├── Channel.swift
 │   │   ├── TestData.swift
-│   │   └── AtlasDataProcessor.swift
+│   │   ├── AtlasDataProcessor.swift
+│   │   └── AppConfig.swift                        # 应用配置管理
+│   ├── Managers/                    # 管理器层
+│   │   └── MonitorManager.swift                  # 监控管理器
 │   ├── Services/                    # 服务层
 │   │   └── DataReaderService.swift
 │   ├── AppDelegate.swift           # 应用代理
 │   ├── main.swift                   # 入口文件
 │   └── ViewController.swift
 ├── AtlasDataProcessorPlusTests/     # 单元测试
-└── testMonitoring.py                # Python版本参考实现
 ```
 
 ## 核心功能
@@ -245,3 +255,6 @@ ViewController.swift - 基础视图控制器
 
 ## 图标参数
 16x16 Dock 栏小图标 32x32 Dock 栏图标 128x128 Finder 图标 256x256 大图标 512x512 超大图标
+
+## 总结
+AtlasDataProcessorPlus 是一款基于 Swift 开发的 macOS 测试数据监控工具，提供实时数据监控、多通道管理、智能筛选屏蔽、历史数据批量处理等功能，帮助用户高效分析测试结果。

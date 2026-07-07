@@ -14,6 +14,7 @@ class AppConfig {
         static let summaryPassColor = "SummaryPassColor"
         static let summaryWindowX = "SummaryWindowX"
         static let summaryWindowY = "SummaryWindowY"
+        static let summaryColumns = "SummaryColumns"
         static let tableConfig = "TableConfig"
         static let blockedFailures = "BlockedFailures"
     }
@@ -65,6 +66,7 @@ class AppConfig {
             Keys.summaryPassColor: summaryPassColor,
             Keys.summaryWindowX: summaryWindowX,
             Keys.summaryWindowY: summaryWindowY,
+            Keys.summaryColumns: summaryColumns,
             Keys.tableConfig: tableConfig,
             Keys.blockedFailures: Array(blockedFailures)
         ]
@@ -164,6 +166,15 @@ class AppConfig {
         }
         set {
             setIntValue(key: Keys.summaryWindowY, value: newValue)
+        }
+    }
+    
+    var summaryColumns: Int {
+        get {
+            return getIntValue(key: Keys.summaryColumns, defaultValue: 3)
+        }
+        set {
+            setIntValue(key: Keys.summaryColumns, value: newValue)
         }
     }
     

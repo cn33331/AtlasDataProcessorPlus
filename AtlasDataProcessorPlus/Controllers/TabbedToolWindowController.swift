@@ -67,19 +67,40 @@ class TabbedToolWindowController: NSWindowController, NSTableViewDataSource, NST
         print("🔧 TabbedToolWindowController: updateConfig() 开始")
         print("🔧 当前字体大小: \(currentFontSize), 字体颜色: \(AppConfig.shared.summaryFontColor)")
         print("🔧 FAIL颜色: \(AppConfig.shared.summaryFailColor), PASS颜色: \(AppConfig.shared.summaryPassColor)")
+        print("🔧 显示列数: \(AppConfig.shared.summaryColumns)")
         print("🔧 表格行数: \(tableView.numberOfRows), 列数: \(tableView.tableColumns.count)")
         #endif
         
         let fontSize = CGFloat(currentFontSize)
         tableView.rowHeight = fontSize + 10
         
+        let visibleColumns = TabbedToolWindowController.getVisibleColumns()
         let columnWidths = TabbedToolWindowController.calculateColumnWidths(fontSize: fontSize)
-        if let columns = tableView.tableColumns as? [NSTableColumn] {
-            columns[0].width = columnWidths["channel"]!
-            columns[1].width = columnWidths["status"]!
-            columns[2].width = columnWidths["fail"]!
-            columns[3].width = columnWidths["pass"]!
-            columns[4].width = columnWidths["lastUpdate"]!
+        
+        // 获取当前表格已有的列标识符
+        let existingColumns = Set(tableView.tableColumns.map { $0.identifier.rawValue })
+        let visibleColumnsSet = Set(visibleColumns)
+        
+        // 需要移除的列
+        let columnsToRemove = existingColumns.subtracting(visibleColumnsSet)
+        for colId in columnsToRemove {
+            if let column = tableView.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier(colId)) {
+                tableView.removeTableColumn(column)
+            }
+        }
+        
+        // 需要添加的列（按顺序）
+        for colId in visibleColumns {
+            if !existingColumns.contains(colId) {
+                let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(colId))
+                column.width = columnWidths[colId] ?? 0
+                tableView.addTableColumn(column)
+            } else {
+                // 更新已有列的宽度
+                if let column = tableView.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier(colId)) {
+                    column.width = columnWidths[colId] ?? 0
+                }
+            }
         }
         
         let newWidth = TabbedToolWindowController.calculateWindowWidth(fontSize: fontSize)
@@ -193,9 +214,23 @@ class TabbedToolWindowController: NSWindowController, NSTableViewDataSource, NST
      */
     private static func calculateWindowHeight(fontSize: CGFloat) -> CGFloat {
         let dragBarHeight = fontSize + 10
-        let minTableHeight: CGFloat = 150
+        let minTableHeight: CGFloat = 550
         let padding: CGFloat = 20
         return dragBarHeight + minTableHeight + padding
+    }
+    
+    /**
+     获取当前配置的可见列
+     
+     - Returns: 可见列标识符数组
+     */
+    private static func getVisibleColumns() -> [String] {
+        let columns = AppConfig.shared.summaryColumns
+        if columns == 3 {
+            return ["channel", "status", "fail"]
+        } else {
+            return ["channel", "status", "fail", "pass", "lastUpdate"]
+        }
     }
     
     /**
@@ -209,27 +244,34 @@ class TabbedToolWindowController: NSWindowController, NSTableViewDataSource, NST
     private static func calculateColumnWidths(fontSize: CGFloat) -> [String: CGFloat] {
         let font = NSFont.systemFont(ofSize: fontSize, weight: .medium)
         let channels = MonitorManager.shared.getChannels()
+        let visibleColumns = getVisibleColumns()
         
-        var maxWidths: [String: CGFloat] = [
-            "channel": 0,
-            "status": 0,
-            "fail": 0,
-            "pass": 0,
-            "lastUpdate": 0
-        ]
+        var maxWidths: [String: CGFloat] = [:]
+        for col in visibleColumns {
+            maxWidths[col] = 0
+        }
         
         for channel in channels {
-            let channelWidth = "\(channel.name)".size(withAttributes: [.font: font]).width
-            let statusWidth = "\(channel.status.rawValue)".size(withAttributes: [.font: font]).width
-            let failWidth = "\(channel.failCount)".size(withAttributes: [.font: font]).width
-            let passWidth = "\(channel.passCount)".size(withAttributes: [.font: font]).width
-            let updateWidth = "\(channel.lastUpdate)".size(withAttributes: [.font: font]).width
-            
-            maxWidths["channel"] = max(maxWidths["channel"]!, channelWidth)
-            maxWidths["status"] = max(maxWidths["status"]!, statusWidth)
-            maxWidths["fail"] = max(maxWidths["fail"]!, failWidth)
-            maxWidths["pass"] = max(maxWidths["pass"]!, passWidth)
-            maxWidths["lastUpdate"] = max(maxWidths["lastUpdate"]!, updateWidth)
+            if visibleColumns.contains("channel") {
+                let channelWidth = "\(channel.name)".size(withAttributes: [.font: font]).width
+                maxWidths["channel"] = max(maxWidths["channel"]!, channelWidth)
+            }
+            if visibleColumns.contains("status") {
+                let statusWidth = "\(channel.status.rawValue)".size(withAttributes: [.font: font]).width
+                maxWidths["status"] = max(maxWidths["status"]!, statusWidth)
+            }
+            if visibleColumns.contains("fail") {
+                let failWidth = "\(channel.failCount)".size(withAttributes: [.font: font]).width
+                maxWidths["fail"] = max(maxWidths["fail"]!, failWidth)
+            }
+            if visibleColumns.contains("pass") {
+                let passWidth = "\(channel.passCount)".size(withAttributes: [.font: font]).width
+                maxWidths["pass"] = max(maxWidths["pass"]!, passWidth)
+            }
+            if visibleColumns.contains("lastUpdate") {
+                let updateWidth = "\(channel.lastUpdate)".size(withAttributes: [.font: font]).width
+                maxWidths["lastUpdate"] = max(maxWidths["lastUpdate"]!, updateWidth)
+            }
         }
         
         let spaceWidth = " ".size(withAttributes: [.font: font]).width
@@ -297,7 +339,7 @@ class TabbedToolWindowController: NSWindowController, NSTableViewDataSource, NST
         let scrollView = NSScrollView()
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.borderType = .noBorder
-        scrollView.hasVerticalScroller = true
+        scrollView.hasVerticalScroller = false
         scrollView.drawsBackground = false
         mainView.addSubview(scrollView)
         
@@ -320,29 +362,40 @@ class TabbedToolWindowController: NSWindowController, NSTableViewDataSource, NST
         tableView.headerView = nil
         scrollView.documentView = tableView
         
-        // 添加列：通道、状态、FAIL、PASS、最后更新
+        // 添加列：根据配置动态创建可见列
         let fontSize = CGFloat(currentFontSize)
         let columnWidths = TabbedToolWindowController.calculateColumnWidths(fontSize: fontSize)
+        let visibleColumns = TabbedToolWindowController.getVisibleColumns()
         
-        let channelColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("channel"))
-        channelColumn.width = columnWidths["channel"]!
-        tableView.addTableColumn(channelColumn)
+        if visibleColumns.contains("channel") {
+            let channelColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("channel"))
+            channelColumn.width = columnWidths["channel"]!
+            tableView.addTableColumn(channelColumn)
+        }
         
-        let statusColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("status"))
-        statusColumn.width = columnWidths["status"]!
-        tableView.addTableColumn(statusColumn)
+        if visibleColumns.contains("status") {
+            let statusColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("status"))
+            statusColumn.width = columnWidths["status"]!
+            tableView.addTableColumn(statusColumn)
+        }
         
-        let failColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("fail"))
-        failColumn.width = columnWidths["fail"]!
-        tableView.addTableColumn(failColumn)
+        if visibleColumns.contains("fail") {
+            let failColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("fail"))
+            failColumn.width = columnWidths["fail"]!
+            tableView.addTableColumn(failColumn)
+        }
         
-        let passColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("pass"))
-        passColumn.width = columnWidths["pass"]!
-        tableView.addTableColumn(passColumn)
+        if visibleColumns.contains("pass") {
+            let passColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("pass"))
+            passColumn.width = columnWidths["pass"]!
+            tableView.addTableColumn(passColumn)
+        }
         
-        let updateColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("lastUpdate"))
-        updateColumn.width = columnWidths["lastUpdate"]!
-        tableView.addTableColumn(updateColumn)
+        if visibleColumns.contains("lastUpdate") {
+            let updateColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("lastUpdate"))
+            updateColumn.width = columnWidths["lastUpdate"]!
+            tableView.addTableColumn(updateColumn)
+        }
     }
     
     /**
@@ -358,13 +411,19 @@ class TabbedToolWindowController: NSWindowController, NSTableViewDataSource, NST
                 self.tableView.reloadData()
                 
                 let fontSize = CGFloat(self.currentFontSize)
+                let visibleColumns = TabbedToolWindowController.getVisibleColumns()
                 let columnWidths = TabbedToolWindowController.calculateColumnWidths(fontSize: fontSize)
+                
                 if let columns = self.tableView.tableColumns as? [NSTableColumn] {
-                    columns[0].width = columnWidths["channel"]!
-                    columns[1].width = columnWidths["status"]!
-                    columns[2].width = columnWidths["fail"]!
-                    columns[3].width = columnWidths["pass"]!
-                    columns[4].width = columnWidths["lastUpdate"]!
+                    for column in columns {
+                        let identifier = column.identifier.rawValue
+                        if visibleColumns.contains(identifier) {
+                            column.isHidden = false
+                            column.width = columnWidths[identifier] ?? 0
+                        } else {
+                            column.isHidden = true
+                        }
+                    }
                 }
                 
                 let newWidth = TabbedToolWindowController.calculateWindowWidth(fontSize: fontSize)
@@ -389,13 +448,18 @@ class TabbedToolWindowController: NSWindowController, NSTableViewDataSource, NST
             
             // 更新列宽度
             let fontSize = CGFloat(size)
+            let visibleColumns = TabbedToolWindowController.getVisibleColumns()
             let columnWidths = TabbedToolWindowController.calculateColumnWidths(fontSize: fontSize)
             if let columns = tableView.tableColumns as? [NSTableColumn] {
-                columns[0].width = columnWidths["channel"]!
-                columns[1].width = columnWidths["status"]!
-                columns[2].width = columnWidths["fail"]!
-                columns[3].width = columnWidths["pass"]!
-                columns[4].width = columnWidths["lastUpdate"]!
+                for column in columns {
+                    let identifier = column.identifier.rawValue
+                    if visibleColumns.contains(identifier) {
+                        column.isHidden = false
+                        column.width = columnWidths[identifier] ?? 0
+                    } else {
+                        column.isHidden = true
+                    }
+                }
             }
             
             tableView.reloadData()

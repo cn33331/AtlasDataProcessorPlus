@@ -79,6 +79,21 @@
                   endingLineNumber = "137"
                   offsetFromSymbolStart = "2314">
                </Location>
+               <Location
+                  uuid = "27D3D281-60E4-482B-9C03-6BAA58635C1B - 9dd60c26315094de"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "AtlasDataProcessorPlus.HistoryWindowController.setupMouseTracking() -&gt; ()"
+                  moduleName = "AtlasDataProcessorPlus"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/gdlocal/Desktop/myCode/oc/AtlasDataProcessorPlus/AtlasDataProcessorPlus/Controllers/HistoryWindowController.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "137"
+                  endingLineNumber = "137"
+                  offsetFromSymbolStart = "199">
+               </Location>
             </Locations>
          </BreakpointContent>
       </BreakpointProxy>

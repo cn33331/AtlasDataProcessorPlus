@@ -525,6 +525,10 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTab
                 tabViewItem.label = channel.name
                 tabViewItem.view = channelController.view
                 self.tabView.addTabViewItem(tabViewItem)
+                
+                // 对标签页按通道名称排序（group和slot从小到大）
+                self.sortTabViewItems()
+                
                 self.tabView.selectTabViewItem(tabViewItem)
                 
                 self.statusBar.stringValue = "发现新通道: \(channel.name)"
@@ -667,7 +671,42 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTab
         }
     }
 
-   // MARK: - NSSplitViewDelegate
+   // MARK: - TabView 排序
+    
+    private func sortTabViewItems() {
+        let sortedItems = tabView.tabViewItems.sorted { item1, item2 in
+            let label1 = item1.label
+            let label2 = item2.label
+            
+            let parts1 = label1.components(separatedBy: "-")
+            let parts2 = label2.components(separatedBy: "-")
+            
+            if parts1.count < 2 || parts2.count < 2 {
+                return label1 < label2
+            }
+            
+            let group1 = Int(parts1[0].replacingOccurrences(of: "group", with: "")) ?? 0
+            let group2 = Int(parts2[0].replacingOccurrences(of: "group", with: "")) ?? 0
+            
+            if group1 != group2 {
+                return group1 < group2
+            }
+            
+            let slot1 = Int(parts1[1].replacingOccurrences(of: "slot", with: "")) ?? 0
+            let slot2 = Int(parts2[1].replacingOccurrences(of: "slot", with: "")) ?? 0
+            return slot1 < slot2
+        }
+        
+        for item in tabView.tabViewItems {
+            tabView.removeTabViewItem(item)
+        }
+        
+        for item in sortedItems {
+            tabView.addTabViewItem(item)
+        }
+    }
+    
+    // MARK: - NSSplitViewDelegate
     
     func splitView(_ splitView: NSSplitView, constrainMaxCoordinate proposedMaximumPosition: CGFloat, ofSubviewAt dividerIndex: Int) -> CGFloat {
         // 限制左侧汇总区域的最大宽度为 220 像素
