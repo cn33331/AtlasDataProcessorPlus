@@ -10,28 +10,16 @@ import Cocoa
 class ChannelViewController: NSViewController {
     
     weak var mainWindowController: MainWindowController?
-    let channel: Channel
+    var channel: Channel
     var autoScroll: Bool = true
     var showFailOnly: Bool = false
     
-    // 暴露表格的可见行位置
+    /// 当前可见行位置（只读，基于表格可见区域计算）
     var visibleRow: Int {
-        get {
-            let visibleRect = tableView.visibleRect
-            let visibleRows = tableView.rows(in: visibleRect)
-            return visibleRows.location
-        }
-        set {
-            if newValue >= 0 && newValue < tableView.numberOfRows {
-                tableView.scrollRowToVisible(newValue)
-            }
-        }
+        let visibleRect = tableView.visibleRect
+        let visibleRows = tableView.rows(in: visibleRect)
+        return visibleRows.location
     }
-    
-    // 滚动位置回调
-    var onScrollPositionChanged: ((Int) -> Void)?
-    
-    private var isScrolling: Bool = false
     
     var tableView: NSTableView! // 改为公开属性，方便 MainWindowController 访问
     private var titleLabel: NSTextField!
@@ -196,13 +184,7 @@ class ChannelViewController: NSViewController {
             object: tableView
         )
         
-        // 通知监听 - 滚动视图滚动
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(scrollViewDidScroll(_:)),
-            name: NSScrollView.didLiveScrollNotification,
-            object: scrollView
-        )
+        
     }
     
     private func updateTitle() {
@@ -214,7 +196,17 @@ class ChannelViewController: NSViewController {
     }
     
     func updateTable() {
-        // 过滤数据并保留原始索引
+        rebuildDataSource()
+        tableView.reloadData()
+        updateTitle()
+        
+        // 自动滚动到底部
+        if autoScroll && dataSource.count > 0 {
+            tableView.scrollRowToVisible(dataSource.count - 1)
+        }
+    }
+    
+    private func rebuildDataSource() {
         if showFailOnly {
             dataSource = channel.testData.enumerated()
                 .filter { $0.element.status == "FAIL" }
@@ -222,16 +214,6 @@ class ChannelViewController: NSViewController {
         } else {
             dataSource = channel.testData.enumerated()
                 .map { TestDataWithIndex(testData: $0.element, originalIndex: $0.offset) }
-        }
-        
-        tableView.reloadData()
-        
-        // 更新标题
-        updateTitle()
-        
-        // 自动滚动到底部
-        if autoScroll && dataSource.count > 0 {
-            tableView.scrollRowToVisible(dataSource.count - 1)
         }
     }
     
@@ -295,19 +277,19 @@ class ChannelViewController: NSViewController {
         tableView.sizeLastColumnToFit()
     }
     
-    @objc private func scrollViewDidScroll(_ notification: Notification) {
-        // 防止频繁回调
-        if isScrolling {
-            return
-        }
-        isScrolling = true
-        
-        // 延迟通知，避免滚动过程中频繁触发
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            let currentRow = self.visibleRow
-            self.onScrollPositionChanged?(currentRow)
-            self.isScrolling = false
-        }
+    /**
+     切换到指定通道
+     
+     切换通道时，保留当前表格的滚动位置、列宽等状态，
+     仅替换数据源并刷新表格，实现同一位置对比不同通道数据。
+     
+     - Parameter newChannel: 目标通道
+     */
+    func switchToChannel(_ newChannel: Channel) {
+        channel = newChannel
+        rebuildDataSource()
+        tableView.reloadData()
+        updateTitle()
     }
     
     // MARK: - 内存管理

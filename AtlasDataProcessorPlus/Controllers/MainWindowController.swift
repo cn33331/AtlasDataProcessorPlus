@@ -7,17 +7,25 @@
 
 import Cocoa
 
-class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTabViewDelegate, NSSplitViewDelegate, NSTextFieldDelegate {
+class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSSplitViewDelegate, NSTextFieldDelegate {
     
     private let basePath = URL(fileURLWithPath: "/Users/gdlocal/Library/Logs/Atlas/active")
     private var dataReaderService: DataReaderService!
-    var channelControllers: [String: ChannelViewController] = [:] // key: "group-slot"
-    private var sharedScrollPosition: Int = 0 // 所有通道共享的滚动位置 滚动位置
+    
+    /// 通道数据（key: "group-slot"），供 MonitorManager 等外部访问
+    var channels: [String: Channel] = [:]
+    /// 按 group-slot 排序的通道名称列表
+    private var sortedChannelNames: [String] = []
+    /// 当前选中的通道名称
+    private var currentChannelName: String?
+    
+    /// 唯一的通道详情视图控制器（所有通道共用）
+    private var sharedChannelController: ChannelViewController!
     private var summaryViewController: SummaryViewController!
     
-    // UI 组件声明 - 必须要有这些！
+    // UI 组件
     private var splitView: NSSplitView!
-    private var tabView: NSTabView!
+    private var channelSelector: NSSegmentedControl!
     private var controlView: NSView!
     private var pathLabelTitle: NSTextField!
     private var pathLabel: NSTextField!
@@ -154,15 +162,41 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTab
         // 将容器添加到分割视图
         splitView.addSubview(summaryView)
         
-        // 右侧：通道详情标签页
-        tabView = NSTabView()
-        // 顶部标签（最常见的）
-//        tabView.tabType = .topTabsBezel
-//        tabView.tabViewType = .topTabsBezelBorder
-        // 当标签太长时允许截断显示
-        tabView.allowsTruncatedLabels = true
-        tabView.delegate = self
-        splitView.addSubview(tabView)
+        // 右侧：通道详情区域（通道选择器 + 共享表格）
+        let rightView = NSView()
+        rightView.wantsLayer = true
+        rightView.layer?.backgroundColor = NSColor.white.cgColor
+        
+        // 通道选择器 - 顶部显示所有通道标签
+        channelSelector = NSSegmentedControl()
+        channelSelector.segmentStyle = .texturedSquare
+        channelSelector.trackingMode = .selectOne
+        channelSelector.target = self
+        channelSelector.action = #selector(channelSelected(_:))
+        channelSelector.translatesAutoresizingMaskIntoConstraints = false
+        rightView.addSubview(channelSelector)
+        
+        // 共享通道视图（所有通道共用此视图）
+        // 使用一个空的占位 channel 初始化，后续有新通道时切换
+        let placeholderChannel = Channel(group: "--", slot: "--")
+        sharedChannelController = ChannelViewController(channel: placeholderChannel)
+        sharedChannelController.mainWindowController = self
+        sharedChannelController.view.translatesAutoresizingMaskIntoConstraints = false
+        rightView.addSubview(sharedChannelController.view)
+        
+        // 通道选择器 + 表格布局
+        NSLayoutConstraint.activate([
+            channelSelector.topAnchor.constraint(equalTo: rightView.topAnchor, constant: 4),
+            channelSelector.leadingAnchor.constraint(equalTo: rightView.leadingAnchor, constant: 8),
+            channelSelector.trailingAnchor.constraint(lessThanOrEqualTo: rightView.trailingAnchor, constant: -8),
+            
+            sharedChannelController.view.topAnchor.constraint(equalTo: channelSelector.bottomAnchor, constant: 4),
+            sharedChannelController.view.leadingAnchor.constraint(equalTo: rightView.leadingAnchor),
+            sharedChannelController.view.trailingAnchor.constraint(equalTo: rightView.trailingAnchor),
+            sharedChannelController.view.bottomAnchor.constraint(equalTo: rightView.bottomAnchor)
+        ])
+        
+        splitView.addSubview(rightView)
         
         // 设置分割视图代理
         splitView.delegate = self
@@ -400,9 +434,9 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTab
         stopButton.isEnabled = false
         
         // 更新所有通道状态
-        for (_, controller) in channelControllers {
-            controller.channel.status = .stopped
-            summaryViewController.updateChannelStats(controller.channel)
+        for (_, channel) in channels {
+            channel.status = .stopped
+            summaryViewController.updateChannelStats(channel)
         }
         
         statusBar.stringValue = "监控已停止"
@@ -412,8 +446,8 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTab
         maxRows = Int(maxRowsStepper.intValue)
         maxRowsTextField.stringValue = "\(maxRows)"
         
-        for (_, controller) in channelControllers {
-            controller.channel.maxRows = maxRows
+        for (_, channel) in channels {
+            channel.maxRows = maxRows
         }
     }
     
@@ -428,8 +462,8 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTab
             maxRows = value
             maxRowsStepper.intValue = Int32(maxRows)
             
-            for (_, controller) in channelControllers {
-                controller.channel.maxRows = maxRows
+            for (_, channel) in channels {
+                channel.maxRows = maxRows
             }
         } else {
             // 恢复为有效范围的值
@@ -439,31 +473,22 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTab
     
     @objc private func autoScrollChanged() {
         autoScroll = autoScrollCheckbox.state == .on
-        
-        for (_, controller) in channelControllers {
-            controller.autoScroll = autoScroll
-        }
-        
+        sharedChannelController.autoScroll = autoScroll
         statusBar.stringValue = autoScroll ? "已启用自动滚动模式" : "已禁用自动滚动模式"
     }
     
     @objc private func showFailOnlyChanged() {
         showFailOnly = showFailOnlyCheckbox.state == .on
-        
-        for (_, controller) in channelControllers {
-            controller.showFailOnly = showFailOnly
-            controller.updateTable()
-        }
-        
+        sharedChannelController.showFailOnly = showFailOnly
+        sharedChannelController.updateTable()
         statusBar.stringValue = showFailOnly ? "已启用只显示FAIL行模式" : "已启用显示所有行模式"
     }
     
     @objc private func clearAllData() {
-        for (_, controller) in channelControllers {
-            controller.channel.clearData()
-            controller.updateTable()
+        for (_, channel) in channels {
+            channel.clearData()
         }
-        
+        sharedChannelController.updateTable()
         summaryViewController.clearAll()
         statusBar.stringValue = "所有数据已清除"
     }
@@ -483,7 +508,7 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTab
     }
     
     @objc private func updateStatus() {
-        let activeChannels = channelControllers.count
+        let activeChannels = channels.count
         
         if dataReaderService != nil {
             var status = "监控中 | 活动通道: \(activeChannels)"
@@ -502,40 +527,23 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTab
         DispatchQueue.main.async {
             let key = channel.name
             
-            // 如果是新通道，创建显示组件
-            if !self.channelControllers.keys.contains(key) {
-                let channelController = ChannelViewController(channel: channel)
-                channelController.mainWindowController = self
-                channelController.autoScroll = self.autoScroll
-                channelController.showFailOnly = self.showFailOnly
+            // 如果是新通道，加入通道列表
+            if !self.channels.keys.contains(key) {
+                self.channels[key] = channel
+                self.rebuildChannelSelector()
                 
-                // 设置滚动回调，更新共享的滚动位置
-                channelController.onScrollPositionChanged = { [weak self] row in
-                    guard let self = self else { return }
-                    self.sharedScrollPosition = row
-                    #if DEBUG
-                    print("💾 更新共享滚动位置: \(row)")
-                    #endif
+                // 如果是第一个通道，自动选中
+                if self.currentChannelName == nil {
+                    self.selectChannel(key)
                 }
-                
-                self.channelControllers[key] = channelController
-                
-                // 添加到标签页
-                let tabViewItem = NSTabViewItem(identifier: key)
-                tabViewItem.label = channel.name
-                tabViewItem.view = channelController.view
-                self.tabView.addTabViewItem(tabViewItem)
-                
-                // 对标签页按通道名称排序（group和slot从小到大）
-                self.sortTabViewItems()
-                
-                self.tabView.selectTabViewItem(tabViewItem)
                 
                 self.statusBar.stringValue = "发现新通道: \(channel.name)"
             }
             
-            // 更新表格
-            self.channelControllers[key]?.updateTable()
+            // 如果是当前选中的通道，刷新表格
+            if key == self.currentChannelName {
+                self.sharedChannelController.updateTable()
+            }
             
             // 更新汇总统计
             self.summaryViewController.updateChannelStats(channel)
@@ -556,157 +564,77 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSTab
     func dataReaderService(_ service: DataReaderService, didClearChannelData channel: Channel) {
         DispatchQueue.main.async {
             let key = channel.name
-            if let controller = self.channelControllers[key] {
-                controller.updateTable()
-                self.summaryViewController.updateChannelStats(channel)
-                self.statusBar.stringValue = "通道 \(channel.name) 开始新一轮测试，数据已清空"
-                // 重置共享滚动位置
-                self.sharedScrollPosition = 0
-            }
-        }
-    }
-    
-    // MARK: - NSTabViewDelegate
-    
-    func tabView(_ tabView: NSTabView, didSelect tabViewItem: NSTabViewItem?) {
-        #if DEBUG
-        print("🔄 tabView(_:didSelect:) 被调用")
-        print("📌 选中的标签页: \(tabViewItem?.label ?? "nil")")
-        #endif
-        
-        // 当标签页被选中时，恢复共享的滚动位置
-        if let identifier = tabViewItem?.identifier as? String {
-            #if DEBUG
-            print("🏷️ 标签页标识符: \(identifier)")
-            #endif
+            self.summaryViewController.updateChannelStats(channel)
+            self.statusBar.stringValue = "通道 \(channel.name) 开始新一轮测试，数据已清空"
             
-            // 恢复新选中标签页的滚动位置
-            if let controller = channelControllers[identifier] {
-                #if DEBUG
-                print("📊 新通道控制器: \(controller.channel.name)")
-                print("   表格行数: \(controller.tableView.numberOfRows)")
-                print("📍 共享滚动位置: \(sharedScrollPosition)")
-                #endif
-                
-                // 使用共享的滚动位置，确保不超出范围
-                let scrollRow = min(sharedScrollPosition, max(0, controller.tableView.numberOfRows - 1))
-                
-                if controller.tableView.numberOfRows > 0 && scrollRow >= 0 {
-                    #if DEBUG
-                    print("✅ 滚动到第 \(scrollRow) 行")
-                    #endif
-                    
-                    controller.tableView.scrollRowToVisible(scrollRow)
-                    
-                    #if DEBUG
-                    // 验证滚动是否成功
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        let newVisibleRow = controller.visibleRow
-                        print("🔍 滚动后可见行: \(newVisibleRow)")
-                    }
-                    #endif
-                } else {
-                    #if DEBUG
-                    print("⚠️ 无法滚动：表格行数为 0 或滚动位置无效")
-                    #endif
-                }
-            } else {
-                #if DEBUG
-                print("⚠️ 找不到通道控制器: \(identifier)")
-                #endif
+            // 如果清空的是当前选中的通道，刷新表格
+            if key == self.currentChannelName {
+                self.sharedChannelController.updateTable()
             }
-        } else {
-            #if DEBUG
-            print("⚠️ 标签页标识符为 nil")
-            #endif
         }
     }
     
-    // MARK: - NSTabViewDelegate
+    // MARK: - 通道选择
+
+    @objc private func channelSelected(_ sender: NSSegmentedControl) {
+        let index = sender.selectedSegment
+        guard index >= 0, index < sortedChannelNames.count else { return }
+        selectChannel(sortedChannelNames[index])
+    }
     
-    func tabView(_ tabView: NSTabView, shouldClose tabViewItem: NSTabViewItem) -> Bool {
-        if let key = tabViewItem.identifier as? String {
-            channelControllers.removeValue(forKey: key)
+    private func selectChannel(_ name: String) {
+        guard let channel = channels[name], name != currentChannelName else { return }
+        currentChannelName = name
+        sharedChannelController.autoScroll = autoScroll
+        sharedChannelController.showFailOnly = showFailOnly
+        sharedChannelController.switchToChannel(channel)
+        // 更新 segmented control 选中状态
+        if let idx = sortedChannelNames.firstIndex(of: name) {
+            channelSelector.selectedSegment = idx
         }
-        return true
+    }
+    
+    private func rebuildChannelSelector() {
+        // 排序通道名称
+        sortedChannelNames = channels.keys.sorted { name1, name2 in
+            let parts1 = name1.components(separatedBy: "-")
+            let parts2 = name2.components(separatedBy: "-")
+            if parts1.count < 2 || parts2.count < 2 { return name1 < name2 }
+            let group1 = Int(parts1[0].replacingOccurrences(of: "group", with: "")) ?? 0
+            let group2 = Int(parts2[0].replacingOccurrences(of: "group", with: "")) ?? 0
+            if group1 != group2 { return group1 < group2 }
+            let slot1 = Int(parts1[1].replacingOccurrences(of: "slot", with: "")) ?? 0
+            let slot2 = Int(parts2[1].replacingOccurrences(of: "slot", with: "")) ?? 0
+            return slot1 < slot2
+        }
+        
+        channelSelector.segmentCount = sortedChannelNames.count
+        for (i, name) in sortedChannelNames.enumerated() {
+            channelSelector.setLabel(name, forSegment: i)
+            channelSelector.setWidth(90, forSegment: i)
+        }
+        
+        // 恢复选中状态
+        if let current = currentChannelName, let idx = sortedChannelNames.firstIndex(of: current) {
+            channelSelector.selectedSegment = idx
+        } else if sortedChannelNames.count > 0 {
+            channelSelector.selectedSegment = -1
+        }
     }
     
     // MARK: - Public Methods
     
     func showChannelDetails(_ channel: Channel) {
         let key = channel.name
-        
-        if let controller = channelControllers[key] {
-            // 查找对应的标签页
-            for tabViewItem in tabView.tabViewItems {
-                if tabViewItem.identifier as? String == key {
-                    tabView.selectTabViewItem(tabViewItem)
-                    return
-                }
-            }
-        } else {
-            // 如果通道不存在，创建一个新的
-            let channelController = ChannelViewController(channel: channel)
-            channelController.mainWindowController = self
-            channelController.autoScroll = autoScroll
-            channelController.showFailOnly = showFailOnly
-            
-            // 设置滚动回调，更新共享的滚动位置
-            channelController.onScrollPositionChanged = { [weak self] row in
-                guard let self = self else { return }
-                self.sharedScrollPosition = row
-                #if DEBUG
-                print("💾 更新共享滚动位置: \(row)")
-                #endif
-            }
-            channelControllers[key] = channelController
-            
-            let tabViewItem = NSTabViewItem(identifier: key)
-            tabViewItem.label = channel.name
-            tabViewItem.view = channelController.view
-            tabView.addTabViewItem(tabViewItem)
-            tabView.selectTabViewItem(tabViewItem)
-            
-            statusBar.stringValue = "查看通道: \(channel.name)"
+        // 如果通道不在列表中，先添加
+        if channels[key] == nil {
+            channels[key] = channel
+            rebuildChannelSelector()
         }
+        selectChannel(key)
     }
 
-   // MARK: - TabView 排序
-    
-    private func sortTabViewItems() {
-        let sortedItems = tabView.tabViewItems.sorted { item1, item2 in
-            let label1 = item1.label
-            let label2 = item2.label
-            
-            let parts1 = label1.components(separatedBy: "-")
-            let parts2 = label2.components(separatedBy: "-")
-            
-            if parts1.count < 2 || parts2.count < 2 {
-                return label1 < label2
-            }
-            
-            let group1 = Int(parts1[0].replacingOccurrences(of: "group", with: "")) ?? 0
-            let group2 = Int(parts2[0].replacingOccurrences(of: "group", with: "")) ?? 0
-            
-            if group1 != group2 {
-                return group1 < group2
-            }
-            
-            let slot1 = Int(parts1[1].replacingOccurrences(of: "slot", with: "")) ?? 0
-            let slot2 = Int(parts2[1].replacingOccurrences(of: "slot", with: "")) ?? 0
-            return slot1 < slot2
-        }
-        
-        for item in tabView.tabViewItems {
-            tabView.removeTabViewItem(item)
-        }
-        
-        for item in sortedItems {
-            tabView.addTabViewItem(item)
-        }
-    }
-    
-    // MARK: - NSSplitViewDelegate
+   // MARK: - NSSplitViewDelegate
     
     func splitView(_ splitView: NSSplitView, constrainMaxCoordinate proposedMaximumPosition: CGFloat, ofSubviewAt dividerIndex: Int) -> CGFloat {
         // 限制左侧汇总区域的最大宽度为 220 像素

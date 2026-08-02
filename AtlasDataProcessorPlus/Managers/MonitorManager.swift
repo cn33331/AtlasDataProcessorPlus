@@ -45,8 +45,8 @@ class MonitorManager {
             return []
         }
         
-        let channelControllers = mainWindowController.channelControllers
-        return channelControllers.values.map { $0.channel }.sorted { channel1, channel2 in
+        let channels = mainWindowController.channels
+        return channels.values.sorted { channel1, channel2 in
             let group1 = Int(channel1.group.replacingOccurrences(of: "group", with: "")) ?? 0
             let group2 = Int(channel2.group.replacingOccurrences(of: "group", with: "")) ?? 0
             
