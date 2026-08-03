@@ -1,15 +1,12 @@
 // HistoryWindowController+Actions.swift
-// 负责按钮动作和业务逻辑
+// 按钮动作、业务逻辑、数据处理
 
 import Cocoa
 
 extension HistoryWindowController {
     
-    // MARK: - 按钮动作
+    // MARK: - 浏览按钮
     @objc func browseButtonClicked() {
-        #if DEBUG
-        print("📂 HistoryWindowController: 浏览按钮被点击")
-        #endif
         let openPanel = NSOpenPanel()
         openPanel.canChooseDirectories = true
         openPanel.canChooseFiles = false
@@ -18,85 +15,406 @@ extension HistoryWindowController {
         openPanel.message = "请选择包含 records.csv 文件的目录"
         
         openPanel.beginSheetModal(for: window!) { [weak self] response in
-            #if DEBUG
-            print("📂 HistoryWindowController: 文件选择面板响应: \(response == .OK ? "OK" : "Cancel")")
-            #endif
             guard response == .OK, let url = openPanel.url else { return }
             self?.pathTextField.stringValue = url.path
-            #if DEBUG
-            print("📂 HistoryWindowController: 选择的目录: \(url.path)")
-            #endif
         }
     }
     
+    // MARK: - 处理数据
     @objc func processButtonClicked() {
         let path = pathTextField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        
         guard !path.isEmpty else {
             showAlert(title: "错误", message: "请先选择数据目录")
             return
         }
-        
         guard FileManager.default.fileExists(atPath: path) else {
             showAlert(title: "错误", message: "目录不存在")
             return
         }
-        
         startProcessing(path: path)
     }
     
-    @objc func saveFailHeadersButtonClicked() {
-        guard !groupedFailures.isEmpty else {
-            showAlert(title: "提示", message: "没有可导出的失败数据")
-            return
-        }
+    func startProcessing(path: String) {
+        guard !isProcessing else { return }
         
-        let savePanel = NSSavePanel()
-        savePanel.allowedFileTypes = ["csv"]
-        savePanel.nameFieldStringValue = "FailHeaders_\(Date().timeIntervalSince1970).csv"
-        savePanel.message = "选择保存 Fail 标题行 CSV 文件的位置"
+        isProcessing = true
+        processButton.isEnabled = false
+        browseButton.isEnabled = false
+        statusLabel.stringValue = "正在处理数据..."
         
-        savePanel.beginSheetModal(for: window!) { [weak self] response in
-            guard response == .OK, let url = savePanel.url else { return }
+        reparseButton.isEnabled = false
+        exportCSVButton.isEnabled = false
+        currentFailFilterButton.isEnabled = false
+        
+        processor = AtlasDataProcessor()
+        
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self, let processor = self.processor else { return }
+            let success = processor.run(rootPath: path)
             
-            do {
-                // 构建 CSV 内容
-                var csvRows: [String] = []
+            DispatchQueue.main.async {
+                self.isProcessing = false
+                self.processButton.isEnabled = true
+                self.browseButton.isEnabled = true
                 
-                // 添加表头
-                csvRows.append("file_path,test_item,test_time,SN,channel,S_BUILD")
-                
-                // 遍历所有分组（标题行）
-                for group in self?.groupedFailures ?? [] {
-                    // 获取所有唯一的失败用例
-                    let allFailureCases = group.items.map { $0.components(separatedBy: " | ")[1] }
-                    let uniqueFailureCases = Array(Set(allFailureCases)).sorted()
-                    let failureCaseText = uniqueFailureCases.joined(separator: "; ")
+                if success {
+                    self.processedData = processor.getFinalData()
+                    self.processedDataPlus = processor.getFinalDataPlus()
                     
-                    // 获取第一行的信息作为标题行信息
-                    let firstItem = group.items.first ?? ""
-                    let components = firstItem.components(separatedBy: " | ")
-                    let time = components.count > 0 ? components[0] : ""
-                    let sn = components.count > 6 ? components[6] : ""
-                    let channel = components.count > 7 ? components[7] : ""
-                    let sBuild = components.count > 8 ? components[8] : ""
+                    // 提取上限/下限行（processedDataPlus[1] 和 [2]）
+                    if self.processedDataPlus.count > 2 {
+                        self.upperLimitRow = self.processedDataPlus[1]
+                        self.lowerLimitRow = self.processedDataPlus[2]
+                    }
                     
-                    // 构建 CSV 行
-                    let row = "\(group.filePath),\(failureCaseText),\(time),\(sn),\(channel),\(sBuild)"
-                    csvRows.append(row)
+                    self.statistics = processor.getStatistics()
+                    
+                    let snColumnName = AppConfig.shared.tableConfig["sn"] ?? ""
+                    let channelColumnName = AppConfig.shared.tableConfig["channel"] ?? ""
+                    let sBuildColumnName = AppConfig.shared.tableConfig["s_build"] ?? ""
+                    self.failures = processor.getFailureSummary(
+                        snColumnName: snColumnName,
+                        channelColumnName: channelColumnName,
+                        sBuildColumnName: sBuildColumnName
+                    )
+                    
+                    // 构建扁平记录
+                    self.buildRecords()
+                    self.applyFilters()
+                    self.updateSlotStats()
+                    self.updateSBuildStats()
+                    
+                    self.statusLabel.stringValue = "处理完成"
+                    self.reparseButton.isEnabled = true
+                    self.exportCSVButton.isEnabled = !self.processedData.isEmpty
+                    self.currentFailFilterButton.isEnabled = !self.failures.isEmpty
+                    
+                    let fileCount = self.statistics["total_files"] as? Int ?? 0
+                    let paramCount = self.statistics["total_params"] as? Int ?? 0
+                    let failureCount = self.statistics["failure_count"] as? Int ?? 0
+                    
+                    if failureCount > 0 {
+                        self.showAlert(title: "处理完成",
+                            message: "文件数: \(fileCount)\n参数数: \(paramCount)\n发现 \(failureCount) 条失败记录")
+                    } else {
+                        self.showAlert(title: "处理完成",
+                            message: "文件数: \(fileCount)\n参数数: \(paramCount)\n所有测试都通过 ✓")
+                    }
+                } else {
+                    self.statusLabel.stringValue = "处理失败"
+                    self.showAlert(title: "处理失败", message: "无法处理数据，请检查目录结构和文件权限")
                 }
-                
-                let csvContent = csvRows.joined(separator: "\n")
-                try csvContent.write(to: url, atomically: true, encoding: .utf8)
-                self?.showAlert(title: "成功", message: "Fail 标题行 CSV 文件已保存到: \(url.path)")
-                
-            } catch {
-                self?.showAlert(title: "保存失败", message: "无法保存文件: \(error.localizedDescription)")
             }
         }
     }
     
+    // MARK: - 构建扁平记录
+    private func buildRecords() {
+        allRecords.removeAll()
+        
+        guard processedDataPlus.count > 4 else { return }
+        
+        let headerRow = processedDataPlus[0]
+        
+        // 查找关键列索引
+        let snColName = AppConfig.shared.tableConfig["sn"] ?? "PrimaryIdentity"
+        let channelColName = AppConfig.shared.tableConfig["channel"] ?? ""
+        let sBuildColName = AppConfig.shared.tableConfig["s_build"] ?? "S_BUILD"
+        
+        var snIndex = headerRow.firstIndex(of: snColName) ?? 2
+        if snIndex < 0 || snIndex >= headerRow.count { snIndex = 2 }
+        var channelIndex = headerRow.firstIndex(of: channelColName) ?? 5
+        if channelIndex < 0 || channelIndex >= headerRow.count { channelIndex = 5 }
+        var sBuildIndex = headerRow.firstIndex(of: sBuildColName) ?? 3
+        if sBuildIndex < 0 || sBuildIndex >= headerRow.count { sBuildIndex = 3 }
+        
+        let statusIndex = 7
+        let timeIndex = 9
+        let testNameIndex = 11
+        
+        for i in 4..<processedDataPlus.count {
+            let row = processedDataPlus[i]
+            guard row.count > max(snIndex, channelIndex, sBuildIndex, statusIndex, timeIndex, testNameIndex) else { continue }
+            
+            let sn = snIndex < row.count ? row[snIndex] : ""
+            let slotID = channelIndex < row.count ? row[channelIndex] : ""
+            let sBuild = sBuildIndex < row.count ? row[sBuildIndex] : ""
+            let status = statusIndex < row.count ? row[statusIndex] : ""
+            let testTime = timeIndex < row.count ? row[timeIndex] : ""
+            let testName = testNameIndex < row.count ? row[testNameIndex] : ""
+            
+            // 测量数据摘要：取属性列和测量列中的非空值
+            let fixedColCount = 13  // 12 fixed + 1 file path
+            var measurementParts: [String] = []
+            for j in fixedColCount..<row.count {
+                let val = row[j].trimmingCharacters(in: .whitespaces)
+                if !val.isEmpty {
+                    measurementParts.append(val)
+                }
+            }
+            let measurementData = measurementParts.joined(separator: " | ")
+            
+            let record = TestRecord(
+                index: i - 3,  // 1-based, skip header rows
+                sn: sn,
+                slotID: slotID,
+                sBuild: sBuild,
+                status: status,
+                testTime: testTime,
+                testName: testName,
+                measurementData: measurementData,
+                filePath: processedDataPlus[i].count > 12 ? processedDataPlus[i][12] : "",
+                rowData: row,
+                headerRow: headerRow
+            )
+            allRecords.append(record)
+        }
+    }
+    
+    // MARK: - 过滤与排序
+    func applyFilters() {
+        var records = allRecords
+        
+        // 状态过滤
+        if statusFilter == "pass" {
+            records = records.filter { $0.status == "PASS" }
+        } else if statusFilter == "fail" {
+            records = records.filter { $0.status == "FAIL" }
+        }
+        
+        // SLOT 排除过滤（只保留未被排除的）
+        if !excludedSlots.isEmpty {
+            records = records.filter { !excludedSlots.contains($0.slotID) && !excludedSlots.contains($0.slotID.isEmpty ? "?" : $0.slotID) }
+        }
+        
+        // S_BUILD 排除过滤
+        if !excludedSBuilds.isEmpty {
+            records = records.filter { !excludedSBuilds.contains($0.sBuild) && !excludedSBuilds.contains($0.sBuild.isEmpty ? "?" : $0.sBuild) }
+        }
+        
+        // 搜索过滤
+        if !searchText.isEmpty {
+            let lower = searchText.lowercased()
+            records = records.filter {
+                $0.sn.lowercased().contains(lower) ||
+                $0.sBuild.lowercased().contains(lower) ||
+                $0.testName.lowercased().contains(lower)
+            }
+        }
+        
+        // 日期过滤
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        
+        if let from = dateFrom {
+            records = records.filter {
+                guard let date = dateFormatter.date(from: $0.testTime) else { return true }
+                return date >= from
+            }
+        }
+        if let to = dateTo {
+            records = records.filter {
+                guard let date = dateFormatter.date(from: $0.testTime) else { return true }
+                return date <= to
+            }
+        }
+        
+        // 屏蔽过滤：将匹配的 FAIL 记录改为 PASS，而不是删除记录
+        for i in 0..<records.count {
+            if records[i].status == "FAIL" {
+                let isBlocked = (!records[i].testName.isEmpty && blockedFailures.contains(records[i].testName))
+                    || (!records[i].sn.isEmpty && sessionBlockedSNs.contains(records[i].sn))
+                    || (!records[i].slotID.isEmpty && sessionBlockedChannels.contains(records[i].slotID))
+                    || (!records[i].sBuild.isEmpty && sessionBlockedSBuilds.contains(records[i].sBuild))
+                if isBlocked {
+                    records[i].status = "PASS"
+                }
+            }
+        }
+        
+        // 排序
+        let ascending = sortAscending
+        switch currentSortField {
+        case "slot":
+            records.sort { ascending ? ($0.slotID < $1.slotID) : ($0.slotID > $1.slotID) }
+        case "sn":
+            records.sort { ascending ? ($0.sn < $1.sn) : ($0.sn > $1.sn) }
+        case "time":
+            records.sort {
+                let d0 = dateFormatter.date(from: $0.testTime) ?? Date.distantPast
+                let d1 = dateFormatter.date(from: $1.testTime) ?? Date.distantPast
+                return ascending ? (d0 < d1) : (d0 > d1)
+            }
+        default:
+            records.sort { ascending ? ($0.index < $1.index) : ($0.index > $1.index) }
+        }
+        
+        filteredRecords = records
+        tableView.reloadData()
+        
+        let count = filteredRecords.count
+        let total = allRecords.count
+        let visibleFailCount = filteredRecords.filter { $0.status == "FAIL" }.count
+        // 统计行反映主表格实际状态（屏蔽后 FAIL→PASS）
+        let tableFailCount = records.filter { $0.status == "FAIL" }.count
+        let tablePassCount = records.filter { $0.status == "PASS" }.count
+        
+        // 更新状态统计行
+        statusSummaryLabel.stringValue = "共 \(total) 条 | PASS: \(tablePassCount) | FAIL: \(tableFailCount)"
+        
+        if tableFailCount > 0 && visibleFailCount == 0 {
+            statusLabel.stringValue = "共 \(count) 条记录（所有失败项已屏蔽，全PASS ✓）"
+        } else if count != total {
+            statusLabel.stringValue = "共 \(count) 条记录（已过滤，总计 \(total) 条）"
+        } else {
+            statusLabel.stringValue = "共 \(count) 条记录"
+        }
+    }
+    
+    // MARK: - 状态过滤
+    @objc func setStatusFilter(_ sender: NSButton) {
+        switch sender.tag {
+        case 0: statusFilter = "all"
+        case 1: statusFilter = "pass"
+        case 2: statusFilter = "fail"
+        default: statusFilter = "all"
+        }
+        
+        highlightButton(allFilterButton, active: sender.tag == 0)
+        highlightButton(passFilterButton, active: sender.tag == 1)
+        highlightButton(failFilterButton, active: sender.tag == 2)
+        
+        applyFilters()
+    }
+    
+    // MARK: - 搜索
+    @objc func searchTextChanged(_ sender: NSSearchField) {
+        searchText = sender.stringValue
+        applyFilters()
+    }
+    
+    // MARK: - 日期过滤
+    @objc func dateFilterChanged(_ sender: NSDatePicker) {
+        if sender == dateFromPicker {
+            dateFrom = sender.dateValue
+        } else {
+            dateTo = sender.dateValue
+        }
+        applyFilters()
+    }
+    
+    // MARK: - 快捷日期选择
+    @objc func dateQuickToday() {
+        let today = Calendar.current.startOfDay(for: Date())
+        dateFrom = today
+        dateTo = nil
+        dateFromPicker.dateValue = today
+        dateToPicker.dateValue = Date.distantFuture
+        applyFilters()
+    }
+    
+    @objc func dateQuick3Days() {
+        let today = Calendar.current.startOfDay(for: Date())
+        dateFrom = Calendar.current.date(byAdding: .day, value: -3, to: today)!
+        dateTo = nil
+        dateFromPicker.dateValue = dateFrom!
+        dateToPicker.dateValue = Date.distantFuture
+        applyFilters()
+    }
+    
+    @objc func dateQuick7Days() {
+        let today = Calendar.current.startOfDay(for: Date())
+        dateFrom = Calendar.current.date(byAdding: .day, value: -7, to: today)!
+        dateTo = nil
+        dateFromPicker.dateValue = dateFrom!
+        dateToPicker.dateValue = Date.distantFuture
+        applyFilters()
+    }
+    
+    @objc func dateQuickAll() {
+        dateFrom = nil
+        dateTo = nil
+        dateFromPicker.dateValue = Date.distantPast
+        dateToPicker.dateValue = Date.distantFuture
+        applyFilters()
+    }
+    
+    // MARK: - 快捷时间选择（分钟级）
+    @objc func dateQuick1Hour() {
+        let now = Date()
+        dateFrom = Calendar.current.date(byAdding: .hour, value: -1, to: now)!
+        dateTo = now
+        dateFromPicker.dateValue = dateFrom!
+        dateToPicker.dateValue = now
+        applyFilters()
+    }
+    
+    @objc func dateQuick6Hours() {
+        let now = Date()
+        dateFrom = Calendar.current.date(byAdding: .hour, value: -6, to: now)!
+        dateTo = now
+        dateFromPicker.dateValue = dateFrom!
+        dateToPicker.dateValue = now
+        applyFilters()
+    }
+    
+    @objc func dateQuick12Hours() {
+        let now = Date()
+        dateFrom = Calendar.current.date(byAdding: .hour, value: -12, to: now)!
+        dateTo = now
+        dateFromPicker.dateValue = dateFrom!
+        dateToPicker.dateValue = now
+        applyFilters()
+    }
+    
+    // MARK: - 清除所有过滤
+    @objc func clearAllFilters() {
+        statusFilter = "all"
+        excludedSlots = []
+        excludedSBuilds = []
+        searchText = ""
+        dateFrom = nil
+        dateTo = nil
+        searchField.stringValue = ""
+        dateFromPicker.dateValue = Date.distantPast
+        dateToPicker.dateValue = Date.distantFuture
+        
+        highlightButton(allFilterButton, active: true)
+        highlightButton(passFilterButton, active: false)
+        highlightButton(failFilterButton, active: false)
+        
+        applyFilters()
+        updateSlotStats()
+    }
+    
+    // MARK: - 排序
+    @objc func sortBySlot() {
+        currentSortField = "slot"
+        sortAscending.toggle()
+        applyFilters()
+    }
+    
+    @objc func sortBySN() {
+        currentSortField = "sn"
+        sortAscending.toggle()
+        applyFilters()
+    }
+    
+    @objc func sortByTime() {
+        currentSortField = "time"
+        sortAscending.toggle()
+        applyFilters()
+    }
+    
+    @objc func resetSort() {
+        currentSortField = "index"
+        sortAscending = true
+        applyFilters()
+    }
+    
+    // MARK: - 导出
     @objc func saveCSVButtonClicked() {
+        guard !processedData.isEmpty else { return }
         guard let processor = processor else { return }
         
         let savePanel = NSSavePanel()
@@ -106,214 +424,74 @@ extension HistoryWindowController {
         
         savePanel.beginSheetModal(for: window!) { [weak self] response in
             guard response == .OK, let url = savePanel.url else { return }
-            
             do {
-                // 构建 CSV 内容
                 let csvContent = self?.processedData.map { row in
                     row.map { cell in
                         if cell.contains(",") || cell.contains("\"") || cell.contains("\n") {
-                            let escaped = cell.replacingOccurrences(of: "\"", with: "\"\"")
-                            return "\"\(escaped)\""
+                            return "\"\(cell.replacingOccurrences(of: "\"", with: "\"\"") )\""
                         }
                         return cell
                     }.joined(separator: ",")
                 }.joined(separator: "\n")
-                
                 try csvContent?.write(to: url, atomically: true, encoding: .utf8)
-                self?.showAlert(title: "成功", message: "CSV 文件已保存到: \(url.path)")
-                
+                self?.showAlert(title: "成功", message: "CSV 文件已保存")
             } catch {
-                self?.showAlert(title: "保存失败", message: "无法保存文件: \(error.localizedDescription)")
+                self?.showAlert(title: "保存失败", message: error.localizedDescription)
             }
         }
     }
     
-    @objc func saveCSVPlusButtonClicked() {
-        guard let processor = processor else { return }
+    // MARK: - 详情弹窗
+    func showDetailModal(for record: TestRecord) {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 900, height: 600),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "测试详情"
+        window.isReleasedWhenClosed = false
+        window.minSize = NSSize(width: 700, height: 400)
         
-        let savePanel = NSSavePanel()
-        savePanel.allowedFileTypes = ["csv"]
-        savePanel.nameFieldStringValue = "AtlasCombineDataPlus_\(processor.getTimestamp()).csv"
-        savePanel.message = "选择保存 CSV Plus 文件的位置"
+        let controller = DetailModalController(record: record, upperLimitRow: upperLimitRow, lowerLimitRow: lowerLimitRow)
+        window.contentViewController = controller
         
-        savePanel.beginSheetModal(for: window!) { [weak self] response in
-            guard response == .OK, let url = savePanel.url else { return }
-            
-            do {
-                // 构建 CSV 内容
-                let csvContent = self?.processedDataPlus.map { row in
-                    row.map { cell in
-                        if cell.contains(",") || cell.contains("\"") || cell.contains("\n") {
-                            let escaped = cell.replacingOccurrences(of: "\"", with: "\"\"")
-                            return "\"\(escaped)\""
-                        }
-                        return cell
-                    }.joined(separator: ",")
-                }.joined(separator: "\n")
-                
-                try csvContent?.write(to: url, atomically: true, encoding: .utf8)
-                self?.showAlert(title: "成功", message: "CSV Plus 文件已保存到: \(url.path)")
-                
-            } catch {
-                self?.showAlert(title: "保存失败", message: "无法保存文件: \(error.localizedDescription)")
+        // 使用独立窗口而非 sheet，确保可以正常关闭
+        window.makeKeyAndOrderFront(nil)
+        if let parentWindow = self.window {
+            let parentFrame = parentWindow.frame
+            let x = parentFrame.midX - 450
+            let y = parentFrame.midY - 300
+            window.setFrameOrigin(NSPoint(x: x, y: y))
+        }
+    }
+    
+    // MARK: - 屏蔽管理
+    @objc func showBlockFailDialog(_ sender: Any?) {
+        let popover = NSPopover()
+        popover.behavior = .semitransient
+        popover.appearance = NSAppearance(named: .aqua)
+        
+        let popoverController = BlockFailPopoverController()
+        popoverController.blockedFailures = Array(AppConfig.shared.blockedFailures)
+        popoverController.setPopover(popover)
+        
+        popoverController.completionHandler = { (filteredFailures: [String]?) in
+            if let failures = filteredFailures {
+                AppConfig.shared.blockedFailures = Set(failures)
+                AppConfig.shared.saveConfigToFile()
+                self.applyFilters()
             }
         }
-    }
-    
-    @objc func exportJSONButtonClicked() {
-        guard let processor = processor else { return }
         
-        let savePanel = NSSavePanel()
-        savePanel.allowedFileTypes = ["json"]
-        savePanel.nameFieldStringValue = "AtlasCombineData_\(processor.getTimestamp()).json"
-        savePanel.message = "选择导出 JSON 文件的位置"
+        popover.contentViewController = popoverController
         
-        savePanel.beginSheetModal(for: window!) { [weak self] response in
-            guard response == .OK, let url = savePanel.url else { return }
-            
-            do {
-                // 构建 JSON 内容
-                let jsonData = try JSONSerialization.data(withJSONObject: self?.statistics ?? [:], options: .prettyPrinted)
-                try jsonData.write(to: url)
-                self?.showAlert(title: "成功", message: "JSON 文件已导出到: \(url.path)")
-                
-            } catch {
-                self?.showAlert(title: "导出失败", message: "无法导出文件: \(error.localizedDescription)")
-            }
+        if let button = sender as? NSButton {
+            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .maxY)
         }
     }
     
-    // MARK: - 业务逻辑
-    func startProcessing(path: String) {
-        guard !isProcessing else { return }
-        
-        isProcessing = true
-        processButton.isEnabled = false
-        browseButton.isEnabled = false
-        statusLabel.stringValue = "正在处理数据..."
-        
-        // 重置按钮状态
-        saveFailHeadersButton.isEnabled = false
-        saveCSVButton.isEnabled = false
-        saveCSVPlusButton.isEnabled = false
-        exportJSONButton.isEnabled = false
-        
-        // 创建新的处理器实例
-        processor = AtlasDataProcessor()
-        
-        // 异步处理
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self, let processor = self.processor else { return }
-            
-            let success = processor.run(rootPath: path)
-            
-            DispatchQueue.main.async {
-                self.isProcessing = false
-                self.processButton.isEnabled = true
-                self.browseButton.isEnabled = true
-                
-                if success {
-                    self.statusLabel.stringValue = "处理完成"
-                    
-                    // 获取数据
-                    self.processedData = processor.getFinalData()
-                    self.processedDataPlus = processor.getFinalDataPlus()
-                    
-                    // 获取统计信息
-                    self.statistics = processor.getStatistics()
-                    // 从表格配置中获取 SN、通道号和 S_BUILD 的列名
-                    let snColumnName = AppConfig.shared.tableConfig["sn"] ?? ""
-                    let channelColumnName = AppConfig.shared.tableConfig["channel"] ?? ""
-                    let sBuildColumnName = AppConfig.shared.tableConfig["s_build"] ?? ""
-                    self.failures = processor.getFailureSummary(snColumnName: snColumnName, channelColumnName: channelColumnName, sBuildColumnName: sBuildColumnName)
-                    
-                    // 对失败记录按文件路径分组（应用屏蔽规则）
-                    self.groupFailuresByFilePath()
-                    
-                    // 暂时允许空选择
-                    self.tableView.allowsEmptySelection = true
-                    
-                    // 更新UI
-                    self.tableView.reloadData()
-                    
-                    // 清除选择
-                    self.tableView.deselectAll(nil)
-                    
-                    // 恢复不允许空选择
-                    self.tableView.allowsEmptySelection = false
-                    
-                    // 启用保存按钮
-                    self.saveFailHeadersButton.isEnabled = !self.groupedFailures.isEmpty
-                    self.saveCSVButton.isEnabled = !self.processedData.isEmpty
-                    self.saveCSVPlusButton.isEnabled = !self.processedDataPlus.isEmpty
-                    self.exportJSONButton.isEnabled = true
-                    
-                    // 显示成功信息
-                    let fileCount = self.statistics["total_files"] as? Int ?? 0
-                    let paramCount = self.statistics["total_params"] as? Int ?? 0
-                    let failureCount = self.statistics["failure_count"] as? Int ?? 0
-                    
-                    if failureCount > 0 {
-                        self.showAlert(title: "处理完成", 
-                                     message: """
-                                     处理完成！
-                                     文件数: \(fileCount)
-                                     参数数: \(paramCount)
-                                     发现 \(failureCount) 条失败记录
-                                     """)
-                    } else {
-                        self.showAlert(title: "处理完成", 
-                                     message: """
-                                     处理完成！
-                                     文件数: \(fileCount)
-                                     参数数: \(paramCount)
-                                     所有测试都通过 ✓
-                                     """)
-                    }
-                    
-                } else {
-                    self.statusLabel.stringValue = "处理失败"
-                    self.showAlert(title: "处理失败", message: "无法处理数据，请检查目录结构和文件权限")
-                }
-            }
-        }
-    }
-    
-    // 展开所有分组
-    @objc func expandAllGroups() {
-        print("👆 展开所有按钮被点击")
-        print("分组数量: \(groupedFailures.count)")
-        
-        for groupIndex in 0..<groupedFailures.count {
-            expandedGroups.insert(groupIndex)
-        }
-        
-        print("展开后的分组: \(expandedGroups)")
-        
-        // 暂时允许空选择，避免重新加载数据时自动选择行
-        tableView.allowsEmptySelection = true
-        tableView.reloadData()
-        tableView.deselectAll(nil)
-        tableView.allowsEmptySelection = false
-    }
-    
-    // 折叠所有分组
-    @objc func collapseAllGroups() {
-        print("👆 折叠所有按钮被点击")
-        expandedGroups.removeAll()
-        
-        // 暂时允许空选择，避免重新加载数据时自动选择行
-        tableView.allowsEmptySelection = true
-        tableView.reloadData()
-        tableView.deselectAll(nil)
-        tableView.allowsEmptySelection = false
-    }
-    
-    // 显示当前失败用例筛选面板
     @objc func showCurrentFailFilter(_ sender: Any) {
-        print("🔄 HistoryWindowController: showCurrentFailFilter() 被调用")
-        
-        // 按文件路径分组失败记录（用于计算标题行数量）
         var filePathToFailures: [String: [String]] = [:]
         for failure in failures {
             let components = failure.components(separatedBy: " | ")
@@ -321,320 +499,127 @@ extension HistoryWindowController {
             filePathToFailures[filePath, default: []].append(failure)
         }
         
-        // 提取当前所有失败用例（排除默认屏蔽项）并统计出现次数
         var allFailureCases: Set<String> = []
         var failureCaseCounts: [String: Int] = [:]
         var channelToFailures: [String: [Any]] = [:]
         var snToFailures: [String: [Any]] = [:]
         var sBuildToFailures: [String: [Any]] = [:]
-        // 新增：通道到失败用例内容行计数的映射
         var channelToFailureContentCounts: [String: [String: Int]] = [:]
         
-        // 遍历每个分组（标题行）来构建 SN 和通道号映射（使用标题行计数）
         for (_, groupFailures) in filePathToFailures {
-            if !groupFailures.isEmpty {
-                // 收集当前分组（标题行）中的所有失败用例
-                var groupFailureCases: [String] = []
+            guard !groupFailures.isEmpty else { continue }
+            var groupFailureCases: [String] = []
+            var channel = "", sn = "", sBuild = ""
+            
+            for (index, failure) in groupFailures.enumerated() {
+                let parts = failure.components(separatedBy: " | ")
+                guard parts.count >= 3 else { continue }
+                let failureCase = parts[1].trimmingCharacters(in: .whitespaces)
                 
-                // 提取通道号、SN和S_BUILD（从第一个失败记录中提取）
-                var channel = ""
-                var sn = ""
-                var sBuild = ""
-                
-                // 遍历分组中的所有失败记录
-                for (index, failure) in groupFailures.enumerated() {
-                    let parts = failure.components(separatedBy: " | ")
-                    if parts.count >= 3 {
-                        // 第2个部分（索引1）是失败用例名称
-                        let failureCase = parts[1].trimmingCharacters(in: .whitespaces)
-                        
-                        // 从第一个失败记录中提取通道号、SN和S_BUILD
-                        if index == 0 {
-                            // 提取通道号
-                            if parts.count >= 8 {
-                                channel = parts[7].trimmingCharacters(in: .whitespaces)
-                            }
-                            
-                            // 提取SN
-                            if parts.count >= 7 {
-                                sn = parts[6].trimmingCharacters(in: .whitespaces)
-                            }
-                            
-                            // 提取S_BUILD
-                            if parts.count >= 9 {
-                                sBuild = parts[8].trimmingCharacters(in: .whitespaces)
-                            }
-                        }
-                        
-                        // 只有当失败用例不是"无具体用例"且不在默认屏蔽项中时，才添加到分组失败用例列表中
-                        if !failureCase.isEmpty && failureCase != "无具体用例" && !AppConfig.shared.blockedFailures.contains(failureCase) {
-                            groupFailureCases.append(failureCase)
-                            // 添加到所有失败用例集合
-                            allFailureCases.insert(failureCase)
-                        }
-                    }
+                if index == 0 {
+                    if parts.count >= 8 { channel = parts[7].trimmingCharacters(in: .whitespaces) }
+                    if parts.count >= 7 { sn = parts[6].trimmingCharacters(in: .whitespaces) }
+                    if parts.count >= 9 { sBuild = parts[8].trimmingCharacters(in: .whitespaces) }
                 }
                 
-                // 只有当分组中包含失败用例时，才添加到映射中
-                if !groupFailureCases.isEmpty {
-                    // 添加通道号到映射中
+                if !failureCase.isEmpty && failureCase != "无具体用例" && !AppConfig.shared.blockedFailures.contains(failureCase) {
+                    groupFailureCases.append(failureCase)
+                    allFailureCases.insert(failureCase)
+                }
+            }
+            
+            guard !groupFailureCases.isEmpty else { continue }
+            if !channel.isEmpty {
+                channelToFailures[channel, default: []].append(groupFailureCases.count == 1 ? groupFailureCases[0] : groupFailureCases)
+            }
+            if !sn.isEmpty {
+                snToFailures[sn, default: []].append(groupFailureCases.count == 1 ? groupFailureCases[0] : groupFailureCases)
+            }
+            if !sBuild.isEmpty {
+                sBuildToFailures[sBuild, default: []].append(groupFailureCases.count == 1 ? groupFailureCases[0] : groupFailureCases)
+            }
+        }
+        
+        for failure in failures {
+            let parts = failure.components(separatedBy: " | ")
+            guard parts.count >= 3 else { continue }
+            let failureCase = parts[1].trimmingCharacters(in: .whitespaces)
+            if !failureCase.isEmpty && failureCase != "无具体用例" && !AppConfig.shared.blockedFailures.contains(failureCase) {
+                allFailureCases.insert(failureCase)
+                failureCaseCounts[failureCase, default: 0] += 1
+                if parts.count >= 8 {
+                    let channel = parts[7].trimmingCharacters(in: .whitespaces)
                     if !channel.isEmpty {
-                        channelToFailures[channel, default: []].append(groupFailureCases.count == 1 ? groupFailureCases[0] : groupFailureCases)
-                    }
-                    
-                    // 添加SN到映射中
-                    if !sn.isEmpty {
-                        snToFailures[sn, default: []].append(groupFailureCases.count == 1 ? groupFailureCases[0] : groupFailureCases)
-                    }
-                    
-                    // 添加S_BUILD到映射中
-                    if !sBuild.isEmpty {
-                        sBuildToFailures[sBuild, default: []].append(groupFailureCases.count == 1 ? groupFailureCases[0] : groupFailureCases)
+                        channelToFailureContentCounts[channel, default: [:]][failureCase, default: 0] += 1
                     }
                 }
             }
         }
         
-        // 遍历所有失败记录（内容行）来统计失败用例出现次数（使用内容行计数）
-        for failure in failures {
-            let parts = failure.components(separatedBy: " | ")
-            if parts.count >= 3 {
-                let failureCase = parts[1].trimmingCharacters(in: .whitespaces)
-                // 排除空值、无具体用例和默认屏蔽项
-                if !failureCase.isEmpty && failureCase != "无具体用例" && !AppConfig.shared.blockedFailures.contains(failureCase) {
-                    // 添加到所有失败用例集合
-                    allFailureCases.insert(failureCase)
-                    // 统计出现次数（内容行计数）
-                    failureCaseCounts[failureCase, default: 0] += 1
-                    
-                    // 提取通道号并统计内容行计数
-                    if parts.count >= 8 {
-                        let channel = parts[7].trimmingCharacters(in: .whitespaces)
-                        if !channel.isEmpty {
-                            // 初始化通道的计数字典
-                            if channelToFailureContentCounts[channel] == nil {
-                                channelToFailureContentCounts[channel] = [:]
-                            }
-                            // 统计该失败用例在该通道中的内容行计数
-                            channelToFailureContentCounts[channel]![failureCase, default: 0] += 1
-                        }
-                    }
-                }
-            }
-        }     
-        #if DEBUG
-            print("📋 当前所有失败用例（排除默认屏蔽项）: \(allFailureCases)")
-            print("📋 失败用例出现次数（内容行计数）: \(failureCaseCounts)")
-            print("📋 通道号数量: \(channelToFailures.keys.count)")
-            print("📋 SN数量: \(snToFailures.keys.count)")
-            print("📋 默认屏蔽项: \(AppConfig.shared.blockedFailures)")
-            print("📋 标题行数量: \(filePathToFailures.keys.count)")
-            print("📋 内容行总数: \(failures.count)")
-            
-            // 计算标题行计数和内容行计数的差异
-            var titleRowCounts: [String: Int] = [:]
-            for (_, groupFailures) in filePathToFailures {
-                if !groupFailures.isEmpty {
-                    let firstFailure = groupFailures[0]
-                    let parts = firstFailure.components(separatedBy: " | ")
-                    if parts.count >= 3 {
-                        let failureCase = parts[1].trimmingCharacters(in: .whitespaces)
-                        if !failureCase.isEmpty && failureCase != "无具体用例" && !AppConfig.shared.blockedFailures.contains(failureCase) {
-                            titleRowCounts[failureCase, default: 0] += 1
-                        }
-                    }
-                }
-            }
-            
-            // 打印差异
-            for (failureCase, contentCount) in failureCaseCounts {
-                let titleCount = titleRowCounts[failureCase] ?? 0
-                if contentCount != titleCount {
-                    print("📊 差异: \(failureCase) - 标题行计数=\(titleCount), 内容行计数=\(contentCount)")
-                }
-            }
-        #endif
-        
-        // 创建弹出式面板
         let popover = NSPopover()
-        // popover.behavior = .transient
-        popover.behavior = .semitransient // 关键：改为半持久化，点击Xcode/面板外不会消失
+        popover.behavior = .semitransient
         popover.animates = true
         popover.appearance = NSAppearance(named: .aqua)
         
-        // 创建控制器
         let filterController = CurrentFailFilterController()
-        // 按照失败次数降序排列
         filterController.failureCases = Array(allFailureCases).sorted { failureCaseCounts[$0] ?? 0 > failureCaseCounts[$1] ?? 0 }
         filterController.failureCaseCounts = failureCaseCounts
-        filterController.channelToFailures = channelToFailures
-        filterController.channelToFailureContentCounts = channelToFailureContentCounts
         filterController.snToFailures = snToFailures
-        filterController.sBuildToFailures = sBuildToFailures
-        
-        // 传递之前的屏蔽状态
-        filterController.failureCaseBlocked = sessionBlockedFailures
+        filterController.failureCaseBlocked = blockedFailures  // 包含全局 + 会话屏蔽
         filterController.snBlocked = sessionBlockedSNs
-        filterController.channelBlocked = sessionBlockedChannels
-        filterController.sBuildBlocked = sessionBlockedSBuilds
-        
-        // 最后设置 blockedFailures
-        filterController.blockedFailures = sessionBlockedFailures
-        
         filterController.setPopover(popover)
         
-        // 设置回调
-        filterController.completionHandler = { [weak self] (blockedFailures: Set<String>, blockedSNs: Set<String>, blockedChannels: Set<String>, blockedSBuilds: Set<String>) in
+        filterController.completionHandler = { [weak self] (blockedFailures, blockedSNs) in
             guard let self = self else { return }
-            
-            // 更新会话屏蔽列表
             self.sessionBlockedFailures = blockedFailures
             self.sessionBlockedSNs = blockedSNs
-            self.sessionBlockedChannels = blockedChannels
-            self.sessionBlockedSBuilds = blockedSBuilds
-            
-            print("📋 会话屏蔽的失败用例: \(self.sessionBlockedFailures)")
-            print("📋 会话屏蔽的SN: \(self.sessionBlockedSNs)")
-            print("📋 会话屏蔽的通道号: \(self.sessionBlockedChannels)")
-            print("📋 会话屏蔽的S_BUILD: \(self.sessionBlockedSBuilds)")
-            
-            // 重新生成分组数据（应用新的屏蔽设置）
-            self.groupFailuresByFilePath()
-            
-            // 重新加载数据
-            self.tableView.reloadData()
+            self.applyFilters()
         }
         
-        // 设置内容视图
         popover.contentViewController = filterController
         
-        // 从按钮位置弹出
         if let button = sender as? NSButton {
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .maxY)
         } else if let window = self.window {
-            // 如果没有按钮引用，从窗口中心弹出
             popover.show(relativeTo: window.contentView!.bounds, of: window.contentView!, preferredEdge: .minY)
         }
     }
     
-    // 显示表格配置对话框
     @objc func showTableConfigDialog(_ sender: Any) {
-        print("🔄 HistoryWindowController: showTableConfigDialog() 被调用")
-        
-        // 加载表格配置
         loadTableConfig()
         
-        // 创建弹出式面板
         let popover = NSPopover()
-        // popover.behavior = .transient
-        popover.behavior = .semitransient // 关键：改为半持久化，点击Xcode/面板外不会消失
+        popover.behavior = .semitransient
         popover.animates = true
         popover.appearance = NSAppearance(named: .aqua)
         
-        // 创建控制器
         let configController = TableConfigPopoverController()
         configController.sn = AppConfig.shared.tableConfig["sn"] ?? "PrimaryIdentity"
         configController.channel = AppConfig.shared.tableConfig["channel"] ?? ""
         configController.sBuild = AppConfig.shared.tableConfig["s_build"] ?? "S_BUILD"
         configController.setPopover(popover)
         
-        // 设置回调
         configController.completionHandler = { (sn, channel, sBuild) in
-            // 更新表格配置
             var config = AppConfig.shared.tableConfig
             config["sn"] = sn
             config["channel"] = channel
             config["s_build"] = sBuild
             AppConfig.shared.tableConfig = config
-            
-            print("📋 表格配置: \(AppConfig.shared.tableConfig)")
-            
-            // 保存到配置文件
             AppConfig.shared.saveConfigToFile()
         }
         
-        // 设置内容视图
         popover.contentViewController = configController
         
-        // 从按钮位置弹出
         if let button = sender as? NSButton {
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .maxY)
-        } else if let window = self.window {
-            // 如果没有按钮引用，从窗口中心弹出
-            popover.show(relativeTo: window.contentView!.bounds, of: window.contentView!, preferredEdge: .minY)
         }
     }
     
-    // 从配置文件加载表格配置
-    func loadTableConfig() {
-        print("📋 从配置文件加载表格配置: \(AppConfig.shared.tableConfig)")
-    }
+    // MARK: - 配置加载
+    func loadTableConfig() {}
+    func loadBlockedFailures() {}
     
-    // 保存表格配置到配置文件
-    func saveTableConfig() {
-        AppConfig.shared.saveConfigToFile()
-        print("📋 保存表格配置到配置文件: \(AppConfig.shared.tableConfig)")
-    }
-    
-    // 从配置文件加载默认屏蔽的失败用例
-    func loadBlockedFailures() {
-        print("📋 从配置文件加载默认屏蔽的失败用例: \(AppConfig.shared.blockedFailures)")
-    }
-    
-    // 保存默认屏蔽的失败用例到配置文件
-    func saveBlockedFailures() {
-        AppConfig.shared.saveConfigToFile()
-        print("📋 保存默认屏蔽的失败用例到配置文件: \(AppConfig.shared.blockedFailures)")
-    }
-    
-    // 显示屏蔽fail项弹出式面板
-    @objc func showBlockFailDialog(_ sender: Any?) {
-        print("👆 屏蔽fail项按钮被点击")
-        
-        // 创建弹出式面板
-        let popover = NSPopover()
-        // popover.behavior = .transient // 点击外部区域会关闭
-        popover.behavior = .semitransient // 关键：改为半持久化，点击Xcode/面板外不会消失
-        popover.appearance = NSAppearance(named: .aqua)
-        
-        // 创建面板控制器
-        let popoverController = BlockFailPopoverController()
-        
-        // 设置初始数据
-        popoverController.blockedFailures = Array(AppConfig.shared.blockedFailures)
-        
-        // 设置弹出式面板引用
-        popoverController.setPopover(popover)
-        
-        // 设置回调
-        popoverController.completionHandler = { (filteredFailures: [String]?) in
-            // 如果 filteredFailures 为 nil，表示用户取消操作
-            if let failures = filteredFailures {
-                // 更新默认屏蔽列表
-                AppConfig.shared.blockedFailures = Set(failures)
-                
-                print("📋 默认屏蔽的失败用例: \(AppConfig.shared.blockedFailures)")
-                
-                // 保存到配置文件
-                AppConfig.shared.saveConfigToFile()
-            } else {
-                print("📋 用户取消操作，不保存更改")
-            }
-        }
-        
-        // 设置弹出式面板的内容视图控制器
-        popover.contentViewController = popoverController
-        
-        // 从按钮位置弹出
-        if let button = sender as? NSButton {
-            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .maxY)
-        } else if let window = self.window {
-            // 如果没有按钮引用，从窗口中心弹出
-            popover.show(relativeTo: window.contentView!.bounds, of: window.contentView!, preferredEdge: .minY)
-        }
-    }
-    
-    // 显示警告框
+    // MARK: - 工具方法
     func showAlert(title: String, message: String) {
         let alert = NSAlert()
         alert.messageText = title
@@ -644,401 +629,39 @@ extension HistoryWindowController {
         alert.beginSheetModal(for: window!, completionHandler: nil)
     }
     
-    // 按文件路径分组失败记录
-    func groupFailuresByFilePath() {
-        var filePathToFailures: [String: [String]] = [:]
-        
-        // 遍历所有失败记录
-        for failure in failures {
-            let components = failure.components(separatedBy: " | ")
-            let testCase = components.count > 1 ? components[1] : ""
-            
-            // 提取SN、通道号和S_BUILD
-            let sn = components.count > 6 ? components[6] : ""
-            let channel = components.count > 7 ? components[7] : ""
-            let sBuild = components.count > 8 ? components[8] : ""
-            
-            // 跳过被屏蔽的失败用例、SN、通道号或S_BUILD
-            if !testCase.isEmpty && blockedFailures.contains(testCase) {
-                continue
-            }
-            if !sn.isEmpty && sessionBlockedSNs.contains(sn) {
-                continue
-            }
-            if !channel.isEmpty && sessionBlockedChannels.contains(channel) {
-                continue
-            }
-            if !sBuild.isEmpty && sessionBlockedSBuilds.contains(sBuild) {
-                continue
-            }
-            
-            let filePath = components.count > 2 ? components[2] : "未知文件"
-            
-            // 添加到对应文件路径的数组中
-            if filePathToFailures[filePath] == nil {
-                filePathToFailures[filePath] = []
-            }
-            filePathToFailures[filePath]?.append(failure)
-        }
-        
-        // 转换为GroupedFailure数组
-        groupedFailures = filePathToFailures.map { GroupedFailure(filePath: $0.key, items: $0.value) }
-        
-        // 按文件路径排序
-        groupedFailures.sort { $0.filePath < $1.filePath }
-        
-        // 重置展开状态
-        expandedGroups.removeAll()
-    }
-    
-    // 打开文件路径
-    @objc func openFilePath(_ sender: NSMenuItem) {
-        guard let data = sender.representedObject as? [String: String],
-              let filePath = data["filePath"] else { return }
-        
-        let url = URL(fileURLWithPath: filePath)
-
-        // 允许 filePath 本身就是目录：
-        // - 如果是目录：直接打开该目录
-        // - 如果是文件：打开其所在目录
-        var isDir: ObjCBool = false
-        let fileManager = FileManager.default
-        let resolvedDirectoryURL: URL
-
-        if fileManager.fileExists(atPath: url.path, isDirectory: &isDir), isDir.boolValue {
-            resolvedDirectoryURL = url
-        } else {
-            resolvedDirectoryURL = url.deletingLastPathComponent()
-        }
-
-        #if DEBUG
-        print("📂 openFilePath 被点击")
-        print("  filePath: \(filePath)")
-        print("  directoryToOpen: \(resolvedDirectoryURL.path)")
-        #endif
-
-        // 直接打开 Finder 目录（避免只“选择”目录导致看起来像没打开）
-        // 注意：你的 SDK 里没有 activateFileViewer，因此这里使用 open(_:)
-        NSWorkspace.shared.open(resolvedDirectoryURL)
-    }
-    
-    // 切换分组详情显示
-    @objc func toggleGroupDetails(_ sender: NSMenuItem) {
-        guard let data = sender.representedObject as? [String: Int],
-              let groupIndex = data["groupIndex"] else { return }
-
-        #if DEBUG
-        print("🧩 toggleGroupDetails 被点击，groupIndex=\(groupIndex)")
-        print("  当前展开状态: \(expandedGroups.contains(groupIndex))")
-        #endif
-        
-        // 切换分组展开/折叠状态
-        if expandedGroups.contains(groupIndex) {
-            expandedGroups.remove(groupIndex)
-        } else {
-            expandedGroups.insert(groupIndex)
-        }
-        tableView.reloadData()
-
-        #if DEBUG
-        print("  切换后展开状态: \(expandedGroups.contains(groupIndex))")
-        #endif
-    }
-    
-    // 打开文件所在路径
-    func openFileLocation(filePath: String) {
-        let fileURL = URL(fileURLWithPath: filePath)
-        let directoryURL = fileURL.deletingLastPathComponent()
-        
-        // 使用 Finder 打开目录
-        NSWorkspace.shared.activateFileViewerSelecting([directoryURL])
-    }
-    
-    // 删除本组失败记录
-    @objc func deleteGroup(_ sender: NSMenuItem) {
-        guard let data = sender.representedObject as? [String: Int],
-              let groupIndex = data["groupIndex"] else { return }
-        
-        #if DEBUG
-        print("🗑️ deleteGroup 被点击，groupIndex=\(groupIndex)")
-        #endif
-        
-        // 确认删除
-        let alert = NSAlert()
-        alert.messageText = "确认删除"
-        alert.informativeText = "确定要删除这一组失败记录吗？此操作不可恢复。"
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: "删除")
-        alert.addButton(withTitle: "取消")
-        
-        alert.beginSheetModal(for: window!) { [weak self] response in
-            guard let self = self else { return }
-            
-            if response == .alertFirstButtonReturn {
-                // 用户确认删除
-                #if DEBUG
-                print("  用户确认删除分组 \(groupIndex)")
-                #endif
-                
-                // 从groupedFailures中删除该分组
-                if groupIndex < self.groupedFailures.count {
-                    self.groupedFailures.remove(at: groupIndex)
-                    
-                    // 更新expandedGroups，移除该分组的展开状态
-                    self.expandedGroups.remove(groupIndex)
-                    
-                    // 调整其他分组的展开状态索引
-                    var newExpandedGroups: Set<Int> = []
-                    for index in self.expandedGroups {
-                        if index > groupIndex {
-                            newExpandedGroups.insert(index - 1)
-                        } else if index < groupIndex {
-                            newExpandedGroups.insert(index)
-                        }
-                    }
-                    self.expandedGroups = newExpandedGroups
-                    
-                    // 重新加载表格数据
-                    self.tableView.reloadData()
-                    
-                    #if DEBUG
-                    print("  分组删除完成，剩余分组数: \(self.groupedFailures.count)")
-                    #endif
-                }
-            } else {
-                #if DEBUG
-                print("  用户取消删除")
-                #endif
-            }
-        }
-    }
-    
-    // 删除本条失败记录
-    @objc func deleteItem(_ sender: NSMenuItem) {
-        guard let data = sender.representedObject as? [String: Int],
-              let groupIndex = data["groupIndex"],
-              let itemIndex = data["itemIndex"] else { return }
-        
-        #if DEBUG
-        print("🗑️ deleteItem 被点击，groupIndex=\(groupIndex), itemIndex=\(itemIndex)")
-        #endif
-        
-        // 确认删除
-        let alert = NSAlert()
-        alert.messageText = "确认删除"
-        alert.informativeText = "确定要删除这一条失败记录吗？此操作不可恢复。"
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: "删除")
-        alert.addButton(withTitle: "取消")
-        
-        alert.beginSheetModal(for: window!) { [weak self] response in
-            guard let self = self else { return }
-            
-            if response == .alertFirstButtonReturn {
-                // 用户确认删除
-                #if DEBUG
-                print("  用户确认删除项目 groupIndex=\(groupIndex), itemIndex=\(itemIndex)")
-                #endif
-                
-                // 检查分组和项目索引是否有效
-                if groupIndex < self.groupedFailures.count {
-                    var group = self.groupedFailures[groupIndex]
-                    
-                    if itemIndex < group.items.count {
-                        // 从分组中删除该项目
-                        group.items.remove(at: itemIndex)
-                        
-                        // 如果分组为空，删除整个分组
-                        if group.items.isEmpty {
-                            self.groupedFailures.remove(at: groupIndex)
-                            
-                            // 更新expandedGroups
-                            self.expandedGroups.remove(groupIndex)
-                            var newExpandedGroups: Set<Int> = []
-                            for index in self.expandedGroups {
-                                if index > groupIndex {
-                                    newExpandedGroups.insert(index - 1)
-                                } else if index < groupIndex {
-                                    newExpandedGroups.insert(index)
-                                }
-                            }
-                            self.expandedGroups = newExpandedGroups
-                        } else {
-                            // 更新分组
-                            self.groupedFailures[groupIndex] = group
-                        }
-                        
-                        // 重新加载表格数据
-                        self.tableView.reloadData()
-                        
-                        #if DEBUG
-                        print("  项目删除完成")
-                        #endif
-                    }
-                }
-            } else {
-                #if DEBUG
-                print("  用户取消删除")
-                #endif
-            }
-        }
-    }
-    
-    // 删除全局相同失败用例的记录
-    @objc func deleteGlobalSameFailure(_ sender: NSMenuItem) {
-        guard let data = sender.representedObject as? [String: Int],
-              let groupIndex = data["groupIndex"],
-              let itemIndex = data["itemIndex"] else { return }
-        
-        #if DEBUG
-        print("🗑️ deleteGlobalSameFailure 被点击，groupIndex=\(groupIndex), itemIndex=\(itemIndex)")
-        #endif
-        
-        // 获取当前失败记录的失败用例名称
-        guard groupIndex < groupedFailures.count else { return }
-        let group = groupedFailures[groupIndex]
-        guard itemIndex < group.items.count else { return }
-        let failure = group.items[itemIndex]
-        let components = failure.components(separatedBy: " | ")
-        guard components.count > 1 else { return }
-        let failureCase = components[1]
-        
-        // 确认删除
-        let alert = NSAlert()
-        alert.messageText = "确认删除"
-        alert.informativeText = "确定要删除全局所有包含相同失败用例的记录吗？此操作不可恢复。"
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: "删除")
-        alert.addButton(withTitle: "取消")
-        
-        alert.beginSheetModal(for: window!) { [weak self] response in
-            guard let self = self else { return }
-            
-            if response == .alertFirstButtonReturn {
-                // 用户确认删除
-                #if DEBUG
-                print("  用户确认删除全局相同失败用例: \(failureCase)")
-                #endif
-                
-                // 遍历所有分组，删除包含相同失败用例的记录
-                var groupsToRemove: [Int] = []
-                
-                for (currentGroupIndex, var currentGroup) in self.groupedFailures.enumerated() {
-                    // 筛选出不包含相同失败用例的记录
-                    let filteredItems = currentGroup.items.filter { item in
-                        let itemComponents = item.components(separatedBy: " | ")
-                        return itemComponents.count <= 1 || itemComponents[1] != failureCase
-                    }
-                    
-                    if filteredItems.count == 0 {
-                        // 如果分组为空，标记为删除
-                        groupsToRemove.append(currentGroupIndex)
-                    } else if filteredItems.count != currentGroup.items.count {
-                        // 更新分组
-                        currentGroup.items = filteredItems
-                        self.groupedFailures[currentGroupIndex] = currentGroup
-                    }
-                }
-                
-                // 按从后往前的顺序删除分组，避免索引错乱
-                for groupIndexToRemove in groupsToRemove.sorted(by: >) {
-                    self.groupedFailures.remove(at: groupIndexToRemove)
-                    
-                    // 更新expandedGroups
-                    self.expandedGroups.remove(groupIndexToRemove)
-                    var newExpandedGroups: Set<Int> = []
-                    for index in self.expandedGroups {
-                        if index > groupIndexToRemove {
-                            newExpandedGroups.insert(index - 1)
-                        } else if index < groupIndexToRemove {
-                            newExpandedGroups.insert(index)
-                        }
-                    }
-                    self.expandedGroups = newExpandedGroups
-                }
-                
-                // 重新加载表格数据
-                self.tableView.reloadData()
-                
-                #if DEBUG
-                print("  全局相同失败用例删除完成")
-                #endif
-            } else {
-                #if DEBUG
-                print("  用户取消删除")
-                #endif
-            }
-        }
-    }
-    
-    // 屏蔽全局失败用例
-    @objc func blockGlobalFailure(_ sender: NSMenuItem) {
-        guard let data = sender.representedObject as? [String: Int],
-              let groupIndex = data["groupIndex"],
-              let itemIndex = data["itemIndex"] else { return }
-        
-        #if DEBUG
-        print("🛑 blockGlobalFailure 被点击，groupIndex=\(groupIndex), itemIndex=\(itemIndex)")
-        #endif
-        
-        // 获取当前失败记录的失败用例名称
-        guard groupIndex < groupedFailures.count else { return }
-        let group = groupedFailures[groupIndex]
-        guard itemIndex < group.items.count else { return }
-        let failure = group.items[itemIndex]
-        let components = failure.components(separatedBy: " | ")
-        guard components.count > 1 else { return }
-        let failureCase = components[1]
-        
-        // 确认屏蔽
-        let alert = NSAlert()
-        alert.messageText = "确认屏蔽"
-        alert.informativeText = "确定要屏蔽全局所有包含相同失败用例的记录吗？此操作是临时的，不会保存到默认屏蔽项中。"
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: "屏蔽")
-        alert.addButton(withTitle: "取消")
-        
-        alert.beginSheetModal(for: window!) { [weak self] response in
-            guard let self = self else { return }
-            
-            if response == .alertFirstButtonReturn {
-                // 用户确认屏蔽
-                #if DEBUG
-                print("  用户确认屏蔽全局相同失败用例: \(failureCase)")
-                #endif
-                
-                // 添加到会话屏蔽列表（临时屏蔽，不会保存到配置文件）
-                self.sessionBlockedFailures.insert(failureCase)
-                
-                print("📋 会话屏蔽的失败用例: \(self.sessionBlockedFailures)")
-                
-                // 重新分组并加载数据
-                self.groupFailuresByFilePath()
-                self.tableView.reloadData()
-                
-                #if DEBUG
-                print("  全局相同失败用例屏蔽完成")
-                #endif
-            } else {
-                #if DEBUG
-                print("  用户取消屏蔽")
-                #endif
-            }
-        }
-    }
-    
-    // MARK: - 静态方法
     static func createAndShow() -> HistoryWindowController {
-        #if DEBUG
-        print("🚀 HistoryWindowController: createAndShow 被调用")
-        #endif
+        debugLog("🔍 [HW] createAndShow - START")
         let windowController = HistoryWindowController(window: NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 1000, height: 700),
+            contentRect: NSRect(x: 0, y: 0, width: 1200, height: 700),
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         ))
+        debugLog("🔍 [HW] createAndShow - window created, frame: \(windowController.window?.frame ?? .zero)")
         windowController.showWindow(nil)
+        windowController.window?.center()
+        debugLog("🔍 [HW] createAndShow - after showWindow, frame: \(windowController.window?.frame ?? .zero)")
+        // 窗口打开后自动开始处理数据
+        DispatchQueue.main.async {
+            windowController.processButtonClicked()
+        }
+        debugLog("🔍 [HW] createAndShow - DONE")
         return windowController
+    }
+}
+
+/// 将调试日志写入 /tmp/hw_debug.log 文件
+func debugLog(_ msg: String) {
+    let f = "/tmp/hw_debug.log"
+    let timestamp = ISO8601DateFormatter().string(from: Date())
+    let line = "[\(timestamp)] \(msg)\n"
+    if let data = line.data(using: .utf8) {
+        if let handle = FileHandle(forWritingAtPath: f) {
+            handle.seekToEndOfFile()
+            handle.write(data)
+            handle.closeFile()
+        } else {
+            try? data.write(to: URL(fileURLWithPath: f), options: .atomic)
+        }
     }
 }

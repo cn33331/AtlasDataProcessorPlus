@@ -29,8 +29,7 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSSpl
     private var controlView: NSView!
     private var pathLabelTitle: NSTextField!
     private var pathLabel: NSTextField!
-    private var startButton: NSButton!
-    private var stopButton: NSButton!
+    private var openHistoryButton: NSButton!
     private var maxRowsTextField: NSTextField!
     private var maxRowsStepper: NSStepper!
     private var autoScrollCheckbox: NSButton!
@@ -266,19 +265,14 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSSpl
         pathLabel.translatesAutoresizingMaskIntoConstraints = false
         controlView.addSubview(pathLabel)
         
-        // 监控控制
-        startButton = NSButton(title: "开始监控", target: self, action: #selector(startMonitoring))
-        startButton.bezelStyle = .rounded
-        startButton.font = NSFont.systemFont(ofSize: 12)
-        startButton.isEnabled = false
-        startButton.translatesAutoresizingMaskIntoConstraints = false
-        controlView.addSubview(startButton)
-        
-        stopButton = NSButton(title: "停止监控", target: self, action: #selector(stopMonitoring))
-        stopButton.bezelStyle = .rounded
-        stopButton.font = NSFont.systemFont(ofSize: 12)
-        stopButton.translatesAutoresizingMaskIntoConstraints = false
-        controlView.addSubview(stopButton)
+        // 打开历史数据处理
+        openHistoryButton = NSButton(title: "打开历史数据处理", target: nil, action: nil)
+        openHistoryButton.bezelStyle = .rounded
+        openHistoryButton.font = NSFont.systemFont(ofSize: 12)
+        openHistoryButton.translatesAutoresizingMaskIntoConstraints = false
+        openHistoryButton.target = NSApp.delegate
+        openHistoryButton.action = #selector(AppDelegate.showHistoryWindow(_:))
+        controlView.addSubview(openHistoryButton)
         
         // 显示设置
         let maxRowsLabel = NSTextField(labelWithString: "最大行数:")
@@ -337,8 +331,7 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSSpl
         // 确保所有视图都已创建
         guard let pathLabelTitle = pathLabelTitle,
               let pathLabel = pathLabel,
-              let startButton = startButton,
-              let stopButton = stopButton,
+              let openHistoryButton = openHistoryButton,
               let maxRowsTextField = maxRowsTextField,
               let maxRowsStepper = maxRowsStepper,
               let autoScrollCheckbox = autoScrollCheckbox,
@@ -363,8 +356,7 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSSpl
         constraints.append(contentsOf: [
             pathLabelTitle.centerYAnchor.constraint(equalTo: controlView.centerYAnchor),
             pathLabel.centerYAnchor.constraint(equalTo: controlView.centerYAnchor),
-            startButton.centerYAnchor.constraint(equalTo: controlView.centerYAnchor),
-            stopButton.centerYAnchor.constraint(equalTo: controlView.centerYAnchor),
+            openHistoryButton.centerYAnchor.constraint(equalTo: controlView.centerYAnchor),
             maxRowsLabel.centerYAnchor.constraint(equalTo: controlView.centerYAnchor),
             maxRowsTextField.centerYAnchor.constraint(equalTo: controlView.centerYAnchor),
             maxRowsStepper.centerYAnchor.constraint(equalTo: controlView.centerYAnchor),
@@ -383,14 +375,11 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSSpl
             pathLabel.leadingAnchor.constraint(equalTo: pathLabelTitle.trailingAnchor, constant: 8),
             pathLabel.widthAnchor.constraint(equalToConstant: 300),
             
-            // startButton 在 pathLabel 右边
-            startButton.leadingAnchor.constraint(equalTo: pathLabel.trailingAnchor, constant: 10),
+            // openHistoryButton 在 pathLabel 右边
+            openHistoryButton.leadingAnchor.constraint(equalTo: pathLabel.trailingAnchor, constant: 10),
             
-            // stopButton 在 startButton 右边
-            stopButton.leadingAnchor.constraint(equalTo: startButton.trailingAnchor, constant: 8),
-            
-            // maxRowsLabel 在 stopButton 右边
-            maxRowsLabel.leadingAnchor.constraint(equalTo: stopButton.trailingAnchor, constant: 10),
+            // maxRowsLabel 在 openHistoryButton 右边
+            maxRowsLabel.leadingAnchor.constraint(equalTo: openHistoryButton.trailingAnchor, constant: 10),
             
             // maxRowsTextField 在 maxRowsLabel 右边
             maxRowsTextField.leadingAnchor.constraint(equalTo: maxRowsLabel.trailingAnchor, constant: 8),
@@ -423,15 +412,11 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSSpl
     
     @objc private func startMonitoring() {
         dataReaderService.start()
-        startButton.isEnabled = false
-        stopButton.isEnabled = true
         statusBar.stringValue = "监控已启动"
     }
     
     @objc public func stopMonitoring() {
         dataReaderService.stop()
-        startButton.isEnabled = true
-        stopButton.isEnabled = false
         
         // 更新所有通道状态
         for (_, channel) in channels {

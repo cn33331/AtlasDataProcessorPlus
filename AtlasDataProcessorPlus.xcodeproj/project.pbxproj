@@ -31,6 +31,7 @@
 		AFA1396C2F2BAF9C006538C2 /* ChannelViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA139672F2BAF9C006538C2 /* ChannelViewController.swift */; };
 		AFA1396F2F2BAF9C006538C2 /* SummaryViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA139682F2BAF9C006538C2 /* SummaryViewController.swift */; };
 		AFA139742F2BAFB7006538C2 /* DataReaderService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA139732F2BAFB7006538C2 /* DataReaderService.swift */; };
+		AFA139802F2BA889006538C2 /* DetailModalController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA1397F2F2BA889006538C2 /* DetailModalController.swift */; };
 		AFA139802F2BB17E006538C2 /* NSVStackLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA1397F2F2BB17E006538C2 /* NSVStackLayout.swift */; };
 		AFA1398E2F2BC581006538C2 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA1398D2F2BC581006538C2 /* main.swift */; };
 		AFA139902F324459006538C2 /* HistoryWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA1398F2F324459006538C2 /* HistoryWindowController.swift */; };
@@ -81,6 +82,7 @@
 		AFA139672F2BAF9C006538C2 /* ChannelViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ChannelViewController.swift; sourceTree = "<group>"; };
 		AFA139682F2BAF9C006538C2 /* SummaryViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SummaryViewController.swift; sourceTree = "<group>"; };
 		AFA139732F2BAFB7006538C2 /* DataReaderService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DataReaderService.swift; sourceTree = "<group>"; };
+		AFA1397F2F2BA889006538C2 /* DetailModalController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DetailModalController.swift; sourceTree = "<group>"; };
 		AFA1397F2F2BB17E006538C2 /* NSVStackLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NSVStackLayout.swift; sourceTree = "<group>"; };
 		AFA1398B2F2BB658006538C2 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AFA1398D2F2BC581006538C2 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
@@ -191,6 +193,7 @@
 				AF9DEF062F76C536009A399B /* HistoryWindowController+Actions.swift */,
 				AF9DEF052F76C536009A399B /* HistoryWindowController+Table.swift */,
 				AF9DEF042F76C536009A399B /* HistoryWindowController+UI.swift */,
+				AFA1397F2F2BA889006538C2 /* DetailModalController.swift */,
 				AFA139672F2BAF9C006538C2 /* ChannelViewController.swift */,
 				AFA139662F2BAF9C006538C2 /* MainWindowController.swift */,
 				AFA139682F2BAF9C006538C2 /* SummaryViewController.swift */,
@@ -360,6 +363,7 @@
 				AFA138E82F2BA886006538C2 /* AppDelegate.swift in Sources */,
 				AFA1398E2F2BC581006538C2 /* main.swift in Sources */,
 				AF9DEF092F76C536009A399B /* HistoryWindowController+Table.swift in Sources */,
+				AFA139802F2BA889006538C2 /* DetailModalController.swift in Sources */,
 				AF37A47D2F7D6701009B3016 /* BlockFailPopoverController.swift in Sources */,
 				AF081C5F2FF9F42F00AAA361 /* SummaryConfigPanelController.swift in Sources */,
 				AFA1396C2F2BAF9C006538C2 /* ChannelViewController.swift in Sources */,
@@ -552,7 +556,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
-				MARKETING_VERSION = 2.7;
+				MARKETING_VERSION = 2.8;
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.bsd.AtlasDataProcessorPlus;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -582,7 +586,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
-				MARKETING_VERSION = 2.7;
+				MARKETING_VERSION = 2.8;
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.bsd.AtlasDataProcessorPlus;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

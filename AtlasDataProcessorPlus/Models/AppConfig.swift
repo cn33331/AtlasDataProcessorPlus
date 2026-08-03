@@ -49,6 +49,10 @@ class AppConfig {
                 let data = try Data(contentsOf: URL(fileURLWithPath: configFileName))
                 if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] {
                     configDict = json
+                    // 首次无屏蔽项时，添加默认值
+                    if let failures = configDict[Keys.blockedFailures] as? [String], failures.isEmpty {
+                        configDict[Keys.blockedFailures] = ["Atlas Group CHECK_STATION_SECURITY"]
+                    }
                     print("✅ 从配置文件加载成功")
                 }
             } catch {
@@ -180,7 +184,7 @@ class AppConfig {
     
     private var defaultTableConfig: [String: String] = [
         "sn": "PrimaryIdentity",
-        "channel": "Fixture Channel ID",
+        "channel": "HeadID",
         "s_build": "S_BUILD"
     ]
     
@@ -212,7 +216,7 @@ class AppConfig {
                let failures = try? JSONSerialization.jsonObject(with: data) as? [String] {
                 return Set(failures)
             }
-            return Set()
+            return Set(["Atlas Group CHECK_STATION_SECURITY"])
         }
         set {
             configDict[Keys.blockedFailures] = Array(newValue)
