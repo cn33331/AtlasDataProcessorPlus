@@ -124,8 +124,10 @@ class AtlasDataProcessor {
     // MARK: - 私有属性
     private var recordsFiles: [String] = []
     private var ghConfig = GHConfig()
-    private var allAttributeNames: Set<String> = []
-    private var allMeasureNames: Set<String> = []
+    private var allAttributeNames: [String] = []
+    private var allMeasureNames: [String] = []
+    private var allAttrSeen = Set<String>()
+    private var allMeasureSeen = Set<String>()
     private var measureMetaDict: [String: [String: String]] = [:]
     private var fileResults: [FileProcessResult] = []
     
@@ -660,31 +662,39 @@ private extension AtlasDataProcessor {
             return result
         }
         
-        // 提取Attribute
+        // 提取Attribute（保序去重）
         var attrDict: [String: String] = [:]
-        var attrNamesSet: Set<String> = []
-        
+        var attrNamesList: [String] = []
+        var attrSeen = Set<String>()
+
         for row in rows where !row.attributeName.isEmpty {
-            attrNamesSet.insert(row.attributeName)
+            if !attrSeen.contains(row.attributeName) {
+                attrSeen.insert(row.attributeName)
+                attrNamesList.append(row.attributeName)
+            }
             attrDict[row.attributeName] = row.attributeValue
         }
-        
-        result.attrNames = Array(attrNamesSet)
+
+        result.attrNames = attrNamesList
         result.attrDict = attrDict
-        
-        // 提取Measure
+
+        // 提取Measure（保序去重）
         var measureDict: [String: String] = [:]
         var measureMeta: [String: [String: String]] = [:]
-        var measureNamesSet: Set<String> = []
-        
+        var measureNamesList: [String] = []
+        var measureSeen = Set<String>()
+
         for row in rows where !row.measurementValue.isEmpty {
             let fullParamName = "\(row.testName) \(row.subTestName) \(row.subSubTestName)"
                 .trimmingCharacters(in: .whitespacesAndNewlines)
 
             if !fullParamName.isEmpty {
-                measureNamesSet.insert(fullParamName)
+                if !measureSeen.contains(fullParamName) {
+                    measureSeen.insert(fullParamName)
+                    measureNamesList.append(fullParamName)
+                }
                 measureDict[fullParamName] = row.measurementValue
-                
+
                 // 存储元数据（只取第一个）
                 if measureMeta[fullParamName] == nil {
                     let meta: [String: String] = [
@@ -696,8 +706,8 @@ private extension AtlasDataProcessor {
                 }
             }
         }
-        
-        result.measureNames = Array(measureNamesSet)
+
+        result.measureNames = measureNamesList
         result.measureMeta = measureMeta
         result.measureDict = measureDict
         
@@ -728,15 +738,17 @@ private extension AtlasDataProcessor {
         
         var failTests = ""
         if testStatus == "FAIL" {
-            var failTestSet: Set<String> = []
+            var failTestList: [String] = []
+            var failSeen = Set<String>()
             for row in rows where row.status == "FAIL" {
                 let failIdentifier = "\(row.testName) \(row.subTestName) \(row.subSubTestName)"
                     .trimmingCharacters(in: .whitespacesAndNewlines)
-                if !failIdentifier.isEmpty {
-                    failTestSet.insert(failIdentifier)
+                if !failIdentifier.isEmpty && !failSeen.contains(failIdentifier) {
+                    failSeen.insert(failIdentifier)
+                    failTestList.append(failIdentifier)
                 }
             }
-            failTests = failTestSet.joined(separator: "; ")
+            failTests = failTestList.joined(separator: "; ")
         }
         
         // 构建固定行
@@ -768,15 +780,21 @@ private extension AtlasDataProcessor {
         for filePath in recordsFiles {
             let result = processSingleFile(filePath: filePath)
             fileResults.append(result)
-            
-            // 合并参数名
+
+            // 合并参数名（保序去重，保留首次出现顺序）
             for attr in result.attrNames {
-                allAttributeNames.insert(attr)
+                if !allAttrSeen.contains(attr) {
+                    allAttrSeen.insert(attr)
+                    allAttributeNames.append(attr)
+                }
             }
             for measure in result.measureNames {
-                allMeasureNames.insert(measure)
+                if !allMeasureSeen.contains(measure) {
+                    allMeasureSeen.insert(measure)
+                    allMeasureNames.append(measure)
+                }
             }
-            
+
             // 合并元数据
             for (key, meta) in result.measureMeta {
                 if measureMetaDict[key] == nil {
@@ -784,11 +802,11 @@ private extension AtlasDataProcessor {
                 }
             }
         }
-        
-        // 排序参数
-        sortedAttrNames = allAttributeNames.sorted()
-        sortedMeasureNames = allMeasureNames.sorted()
-        
+
+        // 保留原始顺序，不再排序
+        sortedAttrNames = allAttributeNames
+        sortedMeasureNames = allMeasureNames
+
         // 合并所有参数名
         allParamNames = sortedAttrNames
         allParamNames.append(contentsOf: sortedMeasureNames)
