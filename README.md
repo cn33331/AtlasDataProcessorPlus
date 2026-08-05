@@ -18,6 +18,7 @@ AtlasDataProcessorPlus/
 │   │   ├── HistoryWindowController+UI.swift      # 历史窗口UI布局
 │   │   ├── CurrentFailFilterController.swift     # 当前FAIL筛选控制器-历史窗口
 │   │   ├── BlockFailPopoverController.swift      # 默认屏蔽项弹出面板-历史窗口
+│   │   ├── DetailModalController.swift           # 详情弹窗控制器-历史窗口
 │   │   └── NSVStackLayout.swift
 │   ├── Models/                      # 数据模型层
 │   │   ├── Channel.swift

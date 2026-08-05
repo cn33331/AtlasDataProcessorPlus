@@ -174,24 +174,37 @@ extension HistoryWindowController {
     // MARK: - 过滤与排序
     func applyFilters() {
         var records = allRecords
-        
-        // 状态过滤
+
+        // 屏蔽处理优先：将匹配的 FAIL 记录改为 PASS（在状态过滤之前执行）
+        for i in 0..<records.count {
+            if records[i].status == "FAIL" {
+                let isBlocked = (!records[i].testName.isEmpty && blockedFailures.contains(records[i].testName))
+                    || (!records[i].sn.isEmpty && sessionBlockedSNs.contains(records[i].sn))
+                    || (!records[i].slotID.isEmpty && sessionBlockedChannels.contains(records[i].slotID))
+                    || (!records[i].sBuild.isEmpty && sessionBlockedSBuilds.contains(records[i].sBuild))
+                if isBlocked {
+                    records[i].status = "PASS"
+                }
+            }
+        }
+
+        // 状态过滤（基于屏蔽后的 status，与主表格 Status 列一致）
         if statusFilter == "pass" {
             records = records.filter { $0.status == "PASS" }
         } else if statusFilter == "fail" {
             records = records.filter { $0.status == "FAIL" }
         }
-        
+
         // SLOT 排除过滤（只保留未被排除的）
         if !excludedSlots.isEmpty {
             records = records.filter { !excludedSlots.contains($0.slotID) && !excludedSlots.contains($0.slotID.isEmpty ? "?" : $0.slotID) }
         }
-        
+
         // S_BUILD 排除过滤
         if !excludedSBuilds.isEmpty {
             records = records.filter { !excludedSBuilds.contains($0.sBuild) && !excludedSBuilds.contains($0.sBuild.isEmpty ? "?" : $0.sBuild) }
         }
-        
+
         // 搜索过滤
         if !searchText.isEmpty {
             let lower = searchText.lowercased()
@@ -201,11 +214,11 @@ extension HistoryWindowController {
                 $0.testName.lowercased().contains(lower)
             }
         }
-        
+
         // 日期过滤
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-        
+
         if let from = dateFrom {
             records = records.filter {
                 guard let date = dateFormatter.date(from: $0.testTime) else { return true }
@@ -216,19 +229,6 @@ extension HistoryWindowController {
             records = records.filter {
                 guard let date = dateFormatter.date(from: $0.testTime) else { return true }
                 return date <= to
-            }
-        }
-        
-        // 屏蔽过滤：将匹配的 FAIL 记录改为 PASS，而不是删除记录
-        for i in 0..<records.count {
-            if records[i].status == "FAIL" {
-                let isBlocked = (!records[i].testName.isEmpty && blockedFailures.contains(records[i].testName))
-                    || (!records[i].sn.isEmpty && sessionBlockedSNs.contains(records[i].sn))
-                    || (!records[i].slotID.isEmpty && sessionBlockedChannels.contains(records[i].slotID))
-                    || (!records[i].sBuild.isEmpty && sessionBlockedSBuilds.contains(records[i].sBuild))
-                if isBlocked {
-                    records[i].status = "PASS"
-                }
             }
         }
         
