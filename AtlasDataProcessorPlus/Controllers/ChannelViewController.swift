@@ -45,8 +45,8 @@ class ChannelViewController: NSViewController {
     override func loadView() {
         view = NSView()
         view.wantsLayer = true
-        view.layer?.backgroundColor = NSColor.white.cgColor
-        
+        view.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+
         setupUI()
     }
     
@@ -237,15 +237,12 @@ class ChannelViewController: NSViewController {
     }
     
     @objc private func exportToExcel() {
-        // 这里可以实现导出到Excel的功能
-        print("导出到Excel功能待实现")
-        
-        // 示例：显示保存对话框
+        // 导出为 CSV（带 UTF-8 BOM，Excel 可直接打开且中文不乱码）
         let savePanel = NSSavePanel()
-        savePanel.title = "导出到Excel"
-        savePanel.message = "选择保存位置"
-        savePanel.allowedFileTypes = ["xlsx", "xls", "csv"]
-        savePanel.nameFieldStringValue = "\(channel.name)_测试数据.xlsx"
+        savePanel.title = "导出测试数据"
+        savePanel.message = "保存为 CSV 文件（可用 Excel 打开）"
+        savePanel.allowedFileTypes = ["csv"]
+        savePanel.nameFieldStringValue = "\(channel.name)_测试数据.csv"
         
         savePanel.begin { [weak self] result in
             if result == .OK, let url = savePanel.url {
@@ -255,22 +252,23 @@ class ChannelViewController: NSViewController {
     }
     
     private func exportDataToExcel(at url: URL) {
-        // 实现实际的Excel导出逻辑
-        // 可以使用第三方库如 CoreXLSX 或创建CSV文件
         var csvContent = "#,testName,upperLimit,measurementValue,lowerLimit,measurementUnits,status\n"
-        
+
         for item in dataSource {
             let testData = item.testData
-            let row = "\(item.originalIndex + 1),\(testData.testName),\(testData.upperLimit),\(testData.measurementValue),\(testData.lowerLimit),\(testData.measurementUnits),\(testData.status)\n"
-            csvContent.append(row)
+            let cells = [
+                "\(item.originalIndex + 1)",
+                testData.testName,
+                testData.upperLimit,
+                testData.measurementValue,
+                testData.lowerLimit,
+                testData.measurementUnits,
+                testData.status
+            ]
+            csvContent += cells.map { AtlasUtils.escapeCSV($0) }.joined(separator: ",") + "\n"
         }
-        
-        do {
-            try csvContent.write(to: url, atomically: true, encoding: .utf8)
-            print("数据已导出到: \(url.path)")
-        } catch {
-            print("导出失败: \(error)")
-        }
+
+        AtlasUtils.writeCSV(csvContent, to: url, context: "导出数据")
     }
     
     @objc private func tableViewDidResize(_ notification: Notification) {
@@ -400,9 +398,9 @@ extension ChannelViewController: NSTableViewDelegate {
         let testData = item.testData
         
         if testData.status == "FAIL" {
-            rowView.backgroundColor = NSColor(red: 1.0, green: 0.85, blue: 0.85, alpha: 1.0)
+            rowView.backgroundColor = AtlasUtils.failRowBackground
         }
-        
+
         return rowView
     }
 
@@ -412,7 +410,7 @@ extension ChannelViewController: NSTableViewDelegate {
             let item = dataSource[row]
             let testData = item.testData
             if testData.status == "FAIL" {
-                rowView.backgroundColor = NSColor(red: 1.0, green: 0.85, blue: 0.85, alpha: 1.0)
+                rowView.backgroundColor = AtlasUtils.failRowBackground
             }
         }
     }

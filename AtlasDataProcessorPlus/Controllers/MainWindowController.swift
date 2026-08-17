@@ -30,6 +30,7 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSSpl
     private var pathLabelTitle: NSTextField!
     private var pathLabel: NSTextField!
     private var openHistoryButton: NSButton!
+    private var maxRowsLabel: NSTextField!
     private var maxRowsTextField: NSTextField!
     private var maxRowsStepper: NSStepper!
     private var autoScrollCheckbox: NSButton!
@@ -51,8 +52,9 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSSpl
     
     // ✅ 添加无参数初始化方法
     convenience init() {
-        // 创建窗口
-        let contentRect = NSRect(x: 0, y: 400, width: 1210, height: 450)
+        // 创建窗口（尺寸按屏幕钳制，兼容工厂小屏显示器）
+        let preferredSize = AtlasUtils.clampedWindowSize(preferred: NSSize(width: 1210, height: 450))
+        let contentRect = NSRect(x: 0, y: 400, width: preferredSize.width, height: preferredSize.height)
         let window = NSWindow(
             contentRect: contentRect,
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
@@ -125,8 +127,8 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSSpl
         let contentView = window!.contentView!
         // 启用图层支持，允许设置背景色
         contentView.wantsLayer = true
-        // 设置白色背景
-        contentView.layer?.backgroundColor = NSColor.white.cgColor
+        // 设置窗口背景（跟随系统明暗模式）
+        contentView.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         
         // 控制面板
         // 调用子方法创建控制面板（包含所有按钮、输入框等）
@@ -164,7 +166,7 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSSpl
         // 右侧：通道详情区域（通道选择器 + 共享表格）
         let rightView = NSView()
         rightView.wantsLayer = true
-        rightView.layer?.backgroundColor = NSColor.white.cgColor
+        rightView.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         
         // 通道选择器 - 顶部显示所有通道标签
         channelSelector = NSSegmentedControl()
@@ -172,6 +174,7 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSSpl
         channelSelector.trackingMode = .selectOne
         channelSelector.target = self
         channelSelector.action = #selector(channelSelected(_:))
+        channelSelector.setAccessibilityLabel("通道选择器")
         channelSelector.translatesAutoresizingMaskIntoConstraints = false
         rightView.addSubview(channelSelector)
         
@@ -233,38 +236,66 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSSpl
     
     private func setupControlView() {
         print("🔧 setupControlView() 开始")
-        
+
         controlView = NSView()
         controlView.wantsLayer = true
-        controlView.layer?.backgroundColor = NSColor.lightGray.withAlphaComponent(0.1).cgColor
-        
+        controlView.layer?.backgroundColor = NSColor.separatorColor.withAlphaComponent(0.3).cgColor
+
         // 先创建所有视图组件
         createAllViews()
-        
-        // 使用安全的约束方式
-        setupSafeConstraints()
-        
+
+        // 两行弹性布局（小屏/大屏通用，NSStackView 自动处理压缩）：
+        // 行 1：监控路径 + 打开历史数据处理
+        // 行 2：最大行数 + 复选框 + 操作按钮
+        let row1 = NSStackView(views: [pathLabelTitle, pathLabel, openHistoryButton])
+        row1.orientation = .horizontal
+        row1.spacing = 8
+        row1.alignment = .centerY
+
+        let row2 = NSStackView(views: [
+            maxRowsLabel!, maxRowsTextField!, maxRowsStepper!,
+            autoScrollCheckbox!, showFailOnlyCheckbox!,
+            clearButton!, toggleSummaryButton!
+        ])
+        row2.orientation = .horizontal
+        row2.spacing = 8
+        row2.alignment = .centerY
+
+        let rows = NSStackView(views: [row1, row2])
+        rows.orientation = .vertical
+        rows.spacing = 4
+        rows.alignment = .leading
+        rows.translatesAutoresizingMaskIntoConstraints = false
+        controlView.addSubview(rows)
+
+        NSLayoutConstraint.activate([
+            rows.leadingAnchor.constraint(equalTo: controlView.leadingAnchor, constant: 8),
+            rows.trailingAnchor.constraint(lessThanOrEqualTo: controlView.trailingAnchor, constant: -8),
+            rows.topAnchor.constraint(greaterThanOrEqualTo: controlView.topAnchor, constant: 4),
+            rows.bottomAnchor.constraint(lessThanOrEqualTo: controlView.bottomAnchor, constant: -4),
+            rows.centerYAnchor.constraint(equalTo: controlView.centerYAnchor),
+        ])
+
         print("✅ setupControlView() 完成")
     }
 
     private func createAllViews() {
         print("  ↪️ 创建所有视图组件")
-        
+
         // 路径显示
         pathLabelTitle = NSTextField(labelWithString: "监控路径:")
         pathLabelTitle.font = NSFont.systemFont(ofSize: 12)
         pathLabelTitle.translatesAutoresizingMaskIntoConstraints = false
-        controlView.addSubview(pathLabelTitle)
-        
+
         pathLabel = NSTextField(string: basePath.path)
         pathLabel.isEditable = false
         pathLabel.isSelectable = true
         pathLabel.font = NSFont.systemFont(ofSize: 12)
-        pathLabel.backgroundColor = NSColor.lightGray.withAlphaComponent(0.3)
+        pathLabel.backgroundColor = NSColor.controlBackgroundColor
         pathLabel.isBordered = true
+        pathLabel.lineBreakMode = .byTruncatingHead
         pathLabel.translatesAutoresizingMaskIntoConstraints = false
-        controlView.addSubview(pathLabel)
-        
+
         // 打开历史数据处理
         openHistoryButton = NSButton(title: "打开历史数据处理", target: nil, action: nil)
         openHistoryButton.bezelStyle = .rounded
@@ -272,26 +303,22 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSSpl
         openHistoryButton.translatesAutoresizingMaskIntoConstraints = false
         openHistoryButton.target = NSApp.delegate
         openHistoryButton.action = #selector(AppDelegate.showHistoryWindow(_:))
-        controlView.addSubview(openHistoryButton)
-        
+
         // 显示设置
-        let maxRowsLabel = NSTextField(labelWithString: "最大行数:")
+        maxRowsLabel = NSTextField(labelWithString: "最大行数:")
         maxRowsLabel.font = NSFont.systemFont(ofSize: 12)
         maxRowsLabel.translatesAutoresizingMaskIntoConstraints = false
-        controlView.addSubview(maxRowsLabel)
-        
+
         maxRowsTextField = NSTextField(string: "\(maxRows)")
         maxRowsTextField.isEditable = true
         maxRowsTextField.isSelectable = true
         maxRowsTextField.font = NSFont.systemFont(ofSize: 12)
-        maxRowsTextField.backgroundColor = NSColor.white
+        maxRowsTextField.backgroundColor = NSColor.textBackgroundColor
         maxRowsTextField.isBordered = true
-        maxRowsTextField.preferredMaxLayoutWidth = 60
         maxRowsTextField.alignment = .center
         maxRowsTextField.translatesAutoresizingMaskIntoConstraints = false
         maxRowsTextField.delegate = self
-        controlView.addSubview(maxRowsTextField)
-        
+
         maxRowsStepper = NSStepper()
         maxRowsStepper.minValue = 100
         maxRowsStepper.maxValue = 10000
@@ -300,111 +327,38 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSSpl
         maxRowsStepper.target = self
         maxRowsStepper.action = #selector(maxRowsChanged)
         maxRowsStepper.translatesAutoresizingMaskIntoConstraints = false
-        controlView.addSubview(maxRowsStepper)
-        
+
         autoScrollCheckbox = NSButton(checkboxWithTitle: "自动滚动", target: self, action: #selector(autoScrollChanged))
         autoScrollCheckbox.state = .on
         autoScrollCheckbox.translatesAutoresizingMaskIntoConstraints = false
-        controlView.addSubview(autoScrollCheckbox)
-        
+
         showFailOnlyCheckbox = NSButton(checkboxWithTitle: "只显示FAIL行", target: self, action: #selector(showFailOnlyChanged))
         showFailOnlyCheckbox.state = .off
         showFailOnlyCheckbox.translatesAutoresizingMaskIntoConstraints = false
-        controlView.addSubview(showFailOnlyCheckbox)
-        
+
         clearButton = NSButton(title: "清除所有数据", target: self, action: #selector(clearAllData))
         clearButton.bezelStyle = .rounded
         clearButton.font = NSFont.systemFont(ofSize: 12)
         clearButton.translatesAutoresizingMaskIntoConstraints = false
-        controlView.addSubview(clearButton)
-        
+
         toggleSummaryButton = NSButton(title: "隐藏汇总", target: self, action: #selector(toggleSummaryVisibility))
         toggleSummaryButton.bezelStyle = .rounded
         toggleSummaryButton.font = NSFont.systemFont(ofSize: 12)
         toggleSummaryButton.translatesAutoresizingMaskIntoConstraints = false
-        controlView.addSubview(toggleSummaryButton)
+
+        // 固定宽度项：路径框 300（超宽时截断显示头部），行数输入框 60
+        pathLabel.widthAnchor.constraint(equalToConstant: 300).isActive = true
+        maxRowsTextField.widthAnchor.constraint(equalToConstant: 60).isActive = true
+
+        // 无障碍标签（VoiceOver 可读）
+        pathLabel.setAccessibilityLabel("监控路径")
+        openHistoryButton.setAccessibilityLabel("打开历史数据处理窗口")
+        maxRowsTextField.setAccessibilityLabel("通道最大显示行数")
+        maxRowsStepper.setAccessibilityLabel("调整最大行数")
+        clearButton.setAccessibilityLabel("清除所有通道数据")
+        toggleSummaryButton.setAccessibilityLabel("显示或隐藏汇总面板")
     }
 
-    private func setupSafeConstraints() {
-        print("  ↪️ 设置安全约束")
-        
-        // 确保所有视图都已创建
-        guard let pathLabelTitle = pathLabelTitle,
-              let pathLabel = pathLabel,
-              let openHistoryButton = openHistoryButton,
-              let maxRowsTextField = maxRowsTextField,
-              let maxRowsStepper = maxRowsStepper,
-              let autoScrollCheckbox = autoScrollCheckbox,
-              let showFailOnlyCheckbox = showFailOnlyCheckbox,
-              let clearButton = clearButton,
-              let toggleSummaryButton = toggleSummaryButton else {
-            print("❌ 错误：有些视图没有正确创建")
-            return
-        }
-        
-        // 找到 maxRowsLabel（局部变量）
-        let maxRowsLabel = controlView.subviews.first { $0 is NSTextField && ($0 as! NSTextField).stringValue == "最大行数:" }
-        
-        guard let maxRowsLabel = maxRowsLabel else {
-            print("❌ 错误：找不到 maxRowsLabel")
-            return
-        }
-        
-        var constraints: [NSLayoutConstraint] = []
-        
-        // 垂直居中约束
-        constraints.append(contentsOf: [
-            pathLabelTitle.centerYAnchor.constraint(equalTo: controlView.centerYAnchor),
-            pathLabel.centerYAnchor.constraint(equalTo: controlView.centerYAnchor),
-            openHistoryButton.centerYAnchor.constraint(equalTo: controlView.centerYAnchor),
-            maxRowsLabel.centerYAnchor.constraint(equalTo: controlView.centerYAnchor),
-            maxRowsTextField.centerYAnchor.constraint(equalTo: controlView.centerYAnchor),
-            maxRowsStepper.centerYAnchor.constraint(equalTo: controlView.centerYAnchor),
-            autoScrollCheckbox.centerYAnchor.constraint(equalTo: controlView.centerYAnchor),
-            showFailOnlyCheckbox.centerYAnchor.constraint(equalTo: controlView.centerYAnchor),
-            clearButton.centerYAnchor.constraint(equalTo: controlView.centerYAnchor),
-            toggleSummaryButton.centerYAnchor.constraint(equalTo: controlView.centerYAnchor)
-        ])
-        
-        // 水平约束 - 使用更简单的方式
-        constraints.append(contentsOf: [
-            // pathLabelTitle 左边距
-            pathLabelTitle.leadingAnchor.constraint(equalTo: controlView.leadingAnchor, constant: 8),
-            
-            // pathLabel 在 pathLabelTitle 右边
-            pathLabel.leadingAnchor.constraint(equalTo: pathLabelTitle.trailingAnchor, constant: 8),
-            pathLabel.widthAnchor.constraint(equalToConstant: 300),
-            
-            // openHistoryButton 在 pathLabel 右边
-            openHistoryButton.leadingAnchor.constraint(equalTo: pathLabel.trailingAnchor, constant: 10),
-            
-            // maxRowsLabel 在 openHistoryButton 右边
-            maxRowsLabel.leadingAnchor.constraint(equalTo: openHistoryButton.trailingAnchor, constant: 10),
-            
-            // maxRowsTextField 在 maxRowsLabel 右边
-            maxRowsTextField.leadingAnchor.constraint(equalTo: maxRowsLabel.trailingAnchor, constant: 8),
-            maxRowsTextField.widthAnchor.constraint(equalToConstant: 60),
-            
-            // maxRowsStepper 在 maxRowsTextField 右边
-            maxRowsStepper.leadingAnchor.constraint(equalTo: maxRowsTextField.trailingAnchor, constant: 4),
-            
-            // autoScrollCheckbox 在 maxRowsStepper 右边
-            autoScrollCheckbox.leadingAnchor.constraint(equalTo: maxRowsStepper.trailingAnchor, constant: 10),
-            
-            // showFailOnlyCheckbox 在 autoScrollCheckbox 右边
-            showFailOnlyCheckbox.leadingAnchor.constraint(equalTo: autoScrollCheckbox.trailingAnchor, constant: 10),
-            
-            // clearButton 在 showFailOnlyCheckbox 右边
-            clearButton.leadingAnchor.constraint(equalTo: showFailOnlyCheckbox.trailingAnchor, constant: 10),
-            
-            // toggleSummaryButton 在 clearButton 右边
-            toggleSummaryButton.leadingAnchor.constraint(equalTo: clearButton.trailingAnchor, constant: 10),
-            toggleSummaryButton.trailingAnchor.constraint(equalTo: controlView.trailingAnchor, constant: -8)
-        ])
-        
-        NSLayoutConstraint.activate(constraints)
-        print("✅ 约束设置完成")
-    }
     private func setupDataReaderService() {
         dataReaderService = DataReaderService(basePath: basePath)
         dataReaderService.delegate = self
@@ -580,18 +534,8 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSSpl
     }
     
     private func rebuildChannelSelector() {
-        // 排序通道名称
-        sortedChannelNames = channels.keys.sorted { name1, name2 in
-            let parts1 = name1.components(separatedBy: "-")
-            let parts2 = name2.components(separatedBy: "-")
-            if parts1.count < 2 || parts2.count < 2 { return name1 < name2 }
-            let group1 = Int(parts1[0].replacingOccurrences(of: "group", with: "")) ?? 0
-            let group2 = Int(parts2[0].replacingOccurrences(of: "group", with: "")) ?? 0
-            if group1 != group2 { return group1 < group2 }
-            let slot1 = Int(parts1[1].replacingOccurrences(of: "slot", with: "")) ?? 0
-            let slot2 = Int(parts2[1].replacingOccurrences(of: "slot", with: "")) ?? 0
-            return slot1 < slot2
-        }
+        // 排序通道名称（统一使用共享排序实现）
+        sortedChannelNames = AtlasUtils.sortedChannelNames(Array(channels.keys))
         
         channelSelector.segmentCount = sortedChannelNames.count
         for (i, name) in sortedChannelNames.enumerated() {

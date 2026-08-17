@@ -21,8 +21,8 @@ class SummaryViewController: NSViewController {
     override func loadView() {
         view = NSView()
         view.wantsLayer = true
-        view.layer?.backgroundColor = NSColor.white.cgColor
-        
+        view.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+
         setupUI()
     }
     
@@ -160,16 +160,7 @@ class SummaryViewController: NSViewController {
                 self.tableView.reloadData(forRowIndexes: IndexSet(integer: index), columnIndexes: columns)
             } else {
                 self.dataSource.append(channel)
-                self.dataSource.sort { channel1, channel2 in
-                    let group1 = Int(channel1.group.replacingOccurrences(of: "group", with: "")) ?? 0
-                    let group2 = Int(channel2.group.replacingOccurrences(of: "group", with: "")) ?? 0
-                    if group1 != group2 {
-                        return group1 < group2
-                    }
-                    let slot1 = Int(channel1.slot.replacingOccurrences(of: "slot", with: "")) ?? 0
-                    let slot2 = Int(channel2.slot.replacingOccurrences(of: "slot", with: "")) ?? 0
-                    return slot1 < slot2
-                }
+                self.dataSource.sort { $0.sortKey.group != $1.sortKey.group ? $0.sortKey.group < $1.sortKey.group : $0.sortKey.slot < $1.sortKey.slot }
                 if let newIndex = self.dataSource.firstIndex(where: { $0.name == channel.name }) {
                     self.tableView.insertRows(at: IndexSet(integer: newIndex), withAnimation: .slideDown)
                 }
@@ -190,17 +181,8 @@ class SummaryViewController: NSViewController {
                 }
             }
             
-            self.dataSource.sort { channel1, channel2 in
-                let group1 = Int(channel1.group.replacingOccurrences(of: "group", with: "")) ?? 0
-                let group2 = Int(channel2.group.replacingOccurrences(of: "group", with: "")) ?? 0
-                if group1 != group2 {
-                    return group1 < group2
-                }
-                let slot1 = Int(channel1.slot.replacingOccurrences(of: "slot", with: "")) ?? 0
-                let slot2 = Int(channel2.slot.replacingOccurrences(of: "slot", with: "")) ?? 0
-                return slot1 < slot2
-            }
-            
+            self.dataSource.sort { $0.sortKey.group != $1.sortKey.group ? $0.sortKey.group < $1.sortKey.group : $0.sortKey.slot < $1.sortKey.slot }
+
             self.tableView.reloadData()
         }
     }
@@ -343,33 +325,33 @@ extension SummaryViewController: NSTableViewDelegate {
             } else if identifier == "status" {
                 switch channel.status {
                 case .running:
-                    textField.textColor = NSColor.green
+                    textField.textColor = NSColor.systemGreen
                 case .ended:
-                    textField.textColor = NSColor.blue
+                    textField.textColor = NSColor.systemBlue
                 case .stopped:
-                    textField.textColor = NSColor.gray
+                    textField.textColor = AtlasUtils.secondaryTextColor
                 default:
-                    textField.textColor = NSColor.black
+                    textField.textColor = NSColor.labelColor
                 }
             } else if identifier == "fail" {
-                textField.textColor = NSColor.red
+                textField.textColor = NSColor.systemRed
                 textField.font = NSFont.systemFont(ofSize: 11, weight: .bold)
             } else if identifier == "pass" {
-                textField.textColor = NSColor.green
+                textField.textColor = NSColor.systemGreen
                 textField.font = NSFont.systemFont(ofSize: 11, weight: .bold)
             } else if identifier == "total" {
                 textField.font = NSFont.systemFont(ofSize: 11, weight: .medium)
             } else if identifier == "lastUpdate" {
                 textField.font = NSFont.systemFont(ofSize: 10)
-                textField.textColor = NSColor.darkGray
+                textField.textColor = AtlasUtils.secondaryTextColor
             }
             // 设置行背景色（只在第一列设置一次）每次渲染单元格
             if identifier == "channel" {
                 if let rowView = cell.superview as? NSTableRowView {
                     if channel.failCount > 0 {
-                        rowView.backgroundColor = NSColor(red: 1.0, green: 0.85, blue: 0.85, alpha: 1.0)
+                        rowView.backgroundColor = AtlasUtils.failRowBackground
                     } else {
-                        rowView.backgroundColor = NSColor.white
+                        rowView.backgroundColor = AtlasUtils.defaultRowBackground
                     }
                 }
             }
@@ -388,7 +370,7 @@ extension SummaryViewController: NSTableViewDelegate {
         if row < dataSource.count {
             let channel = dataSource[row]
             if channel.failCount > 0 {
-                rowView.backgroundColor = NSColor(red: 1.0, green: 0.85, blue: 0.85, alpha: 1.0)
+                rowView.backgroundColor = AtlasUtils.failRowBackground
             }
         }
     }

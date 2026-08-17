@@ -44,19 +44,8 @@ class MonitorManager {
               let mainWindowController = delegate.mainWindowController else {
             return []
         }
-        
-        let channels = mainWindowController.channels
-        return channels.values.sorted { channel1, channel2 in
-            let group1 = Int(channel1.group.replacingOccurrences(of: "group", with: "")) ?? 0
-            let group2 = Int(channel2.group.replacingOccurrences(of: "group", with: "")) ?? 0
-            
-            if group1 != group2 {
-                return group1 < group2
-            }
-            
-            let slot1 = Int(channel1.slot.replacingOccurrences(of: "slot", with: "")) ?? 0
-            let slot2 = Int(channel2.slot.replacingOccurrences(of: "slot", with: "")) ?? 0
-            return slot1 < slot2
-        }
+
+        // 统一使用共享排序实现
+        return AtlasUtils.sortedChannels(Array(mainWindowController.channels.values))
     }
 }

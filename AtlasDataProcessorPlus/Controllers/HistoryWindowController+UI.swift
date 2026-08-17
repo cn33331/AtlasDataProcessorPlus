@@ -8,22 +8,8 @@ private class FlippedView: NSView {
     override var isFlipped: Bool { true }
 }
 
-/// 支持 Cmd+C/V 的搜索框
-private class CopyPasteSearchField: NSSearchField {
-    override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        guard event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
-              let chars = event.charactersIgnoringModifiers else {
-            return super.performKeyEquivalent(with: event)
-        }
-        switch chars {
-        case "c": return NSApp.sendAction(#selector(NSText.copy(_:)), to: nil, from: self)
-        case "v": return NSApp.sendAction(#selector(NSText.paste(_:)), to: nil, from: self)
-        case "x": return NSApp.sendAction(#selector(NSText.cut(_:)), to: nil, from: self)
-        case "a": return NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: self)
-        default: return super.performKeyEquivalent(with: event)
-        }
-    }
-}
+/// 支持 Cmd+C/V 的搜索框（共享实现见 NSVStackLayout.swift）
+private class CopyPasteSearchField: ShortcutAwareSearchField {}
 
 extension HistoryWindowController {
     
@@ -31,11 +17,8 @@ extension HistoryWindowController {
     func setupUI() {
         guard let window = window,
               let windowContentView = window.contentView else {
-            debugLog("🔍 [HW] setupUI - window or contentView is nil, aborting")
             return
         }
-        
-        debugLog("🔍 [HW] setupUI - START, window: \(window.frame)")
         
         let containerView = NSView()
         containerView.translatesAutoresizingMaskIntoConstraints = false
@@ -44,7 +27,6 @@ extension HistoryWindowController {
         // 工具栏
         toolbarView = createToolbar()
         containerView.addSubview(toolbarView)
-        debugLog("🔍 [HW] setupUI - toolbarView created, subviews: \(toolbarView.subviews.count)")
         
         // 分隔线
         let toolbarSeparator = NSBox()
@@ -56,24 +38,25 @@ extension HistoryWindowController {
         let mainArea = NSView()
         mainArea.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(mainArea)
+        mainAreaView = mainArea
         
         // 侧栏
         sidebarView = createSidebar()
         sidebarView.translatesAutoresizingMaskIntoConstraints = false
         mainArea.addSubview(sidebarView)
-        debugLog("🔍 [HW] setupUI - sidebarView created, subviews: \(sidebarView.subviews.count)")
         
         // 侧栏分隔线
         let sidebarSeparator = NSBox()
         sidebarSeparator.boxType = .separator
         sidebarSeparator.translatesAutoresizingMaskIntoConstraints = false
+        sidebarSeparatorView = sidebarSeparator
         mainArea.addSubview(sidebarSeparator)
         
         // 表格
         let tableContainer = createTableViewContainer()
         tableContainer.translatesAutoresizingMaskIntoConstraints = false
         mainArea.addSubview(tableContainer)
-        debugLog("🔍 [HW] setupUI - tableContainer created, subviews: \(tableContainer.subviews.count)")
+        tableContainerView = tableContainer
         
         // 底部状态栏
         statusLabel = NSTextField(labelWithString: "准备就绪")
@@ -84,6 +67,14 @@ extension HistoryWindowController {
         statusLabel.textColor = .secondaryLabelColor
         statusLabel.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(statusLabel)
+
+        // 处理中的转圈进度指示器（位于状态文字左侧）
+        progressIndicator = NSProgressIndicator()
+        progressIndicator.style = .spinning
+        progressIndicator.controlSize = .small
+        progressIndicator.isDisplayedWhenStopped = false
+        progressIndicator.translatesAutoresizingMaskIntoConstraints = false
+        containerView.addSubview(progressIndicator)
         
         // 底部状态栏分隔线
         let statusSeparator = NSBox()
@@ -92,7 +83,19 @@ extension HistoryWindowController {
         containerView.addSubview(statusSeparator)
         
         window.title = "Atlas 历史数据处理"
-        window.minSize = NSSize(width: 1000, height: 600)
+
+        // 无障碍标签（VoiceOver 可读）
+        pathTextField.setAccessibilityLabel("数据目录路径")
+        browseButton.setAccessibilityLabel("浏览选择数据目录")
+        processButton.setAccessibilityLabel("开始处理数据")
+        statusLabel.setAccessibilityLabel("处理状态")
+        progressIndicator.setAccessibilityLabel("处理进度")
+        // 最小尺寸同样按屏幕钳制，避免小屏上窗口无法缩小
+        let vf = AtlasUtils.visibleFrame
+        window.minSize = NSSize(
+            width: min(1000, vf.width - 40),
+            height: min(600, vf.height - 40)
+        )
         
         NSLayoutConstraint.activate([
             // containerView 填充 window.contentView
@@ -115,19 +118,35 @@ extension HistoryWindowController {
             mainArea.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
             mainArea.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
             mainArea.bottomAnchor.constraint(equalTo: statusSeparator.topAnchor),
-            
-            sidebarView.topAnchor.constraint(equalTo: mainArea.topAnchor),
-            sidebarView.leadingAnchor.constraint(equalTo: mainArea.leadingAnchor),
-            sidebarView.bottomAnchor.constraint(equalTo: mainArea.bottomAnchor),
-            sidebarView.widthAnchor.constraint(equalToConstant: 200),
-            
-            sidebarSeparator.topAnchor.constraint(equalTo: mainArea.topAnchor),
-            sidebarSeparator.leadingAnchor.constraint(equalTo: sidebarView.trailingAnchor),
-            sidebarSeparator.bottomAnchor.constraint(equalTo: mainArea.bottomAnchor),
-            sidebarSeparator.widthAnchor.constraint(equalToConstant: 1),
-            
+        ])
+
+        // 侧栏相关约束单独持有，toggleSidebar 时可整体停用/恢复
+        sidebarLeadingConstraint = sidebarView.leadingAnchor.constraint(equalTo: mainArea.leadingAnchor)
+        let sidebarTop = sidebarView.topAnchor.constraint(equalTo: mainArea.topAnchor)
+        let sidebarBottom = sidebarView.bottomAnchor.constraint(equalTo: mainArea.bottomAnchor)
+        sidebarWidthConstraint = sidebarView.widthAnchor.constraint(equalToConstant: 200)
+
+        sidebarSepLeadingConstraint = sidebarSeparator.leadingAnchor.constraint(equalTo: sidebarView.trailingAnchor)
+        let sidebarSepTop = sidebarSeparator.topAnchor.constraint(equalTo: mainArea.topAnchor)
+        let sidebarSepBottom = sidebarSeparator.bottomAnchor.constraint(equalTo: mainArea.bottomAnchor)
+        sidebarSepWidthConstraint = sidebarSeparator.widthAnchor.constraint(equalToConstant: 1)
+
+        tableLeadingToSepConstraint = tableContainer.leadingAnchor.constraint(equalTo: sidebarSeparator.trailingAnchor)
+        // tableLeadingToMainConstraint 不在此处创建——侧栏展开时它根本不存在，杜绝误激活
+        // 仅在 toggleSidebar() 收起侧栏时按需懒创建
+
+        NSLayoutConstraint.activate([
+            sidebarTop, sidebarBottom,
+            sidebarSepTop, sidebarSepBottom,
+            tableLeadingToSepConstraint!,
+        ])
+        sidebarLeadingConstraint?.isActive = true
+        sidebarWidthConstraint?.isActive = true
+        sidebarSepLeadingConstraint?.isActive = true
+        sidebarSepWidthConstraint?.isActive = true
+
+        NSLayoutConstraint.activate([
             tableContainer.topAnchor.constraint(equalTo: mainArea.topAnchor),
-            tableContainer.leadingAnchor.constraint(equalTo: sidebarSeparator.trailingAnchor),
             tableContainer.trailingAnchor.constraint(equalTo: mainArea.trailingAnchor),
             tableContainer.bottomAnchor.constraint(equalTo: mainArea.bottomAnchor),
             
@@ -135,23 +154,24 @@ extension HistoryWindowController {
             statusSeparator.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
             statusSeparator.bottomAnchor.constraint(equalTo: statusLabel.topAnchor, constant: -4),
             
-            statusLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 12),
+            progressIndicator.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 12),
+            progressIndicator.centerYAnchor.constraint(equalTo: statusLabel.centerYAnchor),
+            progressIndicator.widthAnchor.constraint(equalToConstant: 16),
+            progressIndicator.heightAnchor.constraint(equalToConstant: 16),
+
+            statusLabel.leadingAnchor.constraint(equalTo: progressIndicator.trailingAnchor, constant: 8),
             statusLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -12),
             statusLabel.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -6),
             statusLabel.heightAnchor.constraint(equalToConstant: 16),
         ])
         
-        debugLog("🔍 [HW] setupUI - constraints activated")
-        debugLog("🔍 [HW] setupUI - containerView frame(before layout): \(containerView.frame)")
-        debugLog("🔍 [HW] setupUI - window.contentView frame: \(windowContentView.frame)")
-        
         // 强制布局
         containerView.layoutSubtreeIfNeeded()
-        debugLog("🔍 [HW] setupUI - after layoutSubtree, containerView frame: \(containerView.frame)")
-        debugLog("🔍 [HW] setupUI - toolbarView frame: \(toolbarView.frame)")
-        if let sv = sidebarView { debugLog("🔍 [HW] setupUI - sidebarView frame: \(sv.frame)") }
-        debugLog("🔍 [HW] setupUI - statusLabel frame: \(statusLabel?.frame ?? .zero)")
-        debugLog("🔍 [HW] setupUI - tableContainer frame: \(tableContainer.frame)")
+
+        // 小屏显示器（如工厂 1024×768）默认收起侧栏，优先保证表格空间
+        if AtlasUtils.isCompactScreen && sidebarVisible {
+            toggleSidebar()
+        }
     }
     
     // MARK: - 工具栏
@@ -167,33 +187,18 @@ extension HistoryWindowController {
         stack.alignment = .centerY
         stack.translatesAutoresizingMaskIntoConstraints = false
         bar.addSubview(stack)
-        
+
+        // 侧栏开关（小屏显示器收起侧栏可腾出表格空间）
+        let sidebarToggle = NSButton(title: "☰ 侧栏", target: self, action: #selector(toggleSidebar))
+        sidebarToggle.bezelStyle = .rounded
+        sidebarToggle.font = NSFont.systemFont(ofSize: 11)
+        sidebarToggle.setAccessibilityLabel("显示或隐藏侧栏")
+        stack.addArrangedSubview(sidebarToggle)
+
         // 分隔
         let sep1 = makeToolbarSeparator()
         stack.addArrangedSubview(sep1)
-        
-        // 排序按钮
-        sortSlotButton = NSButton(title: "按 SLOT 排序", target: self, action: #selector(sortBySlot))
-        sortSlotButton.bezelStyle = .rounded
-        sortSlotButton.font = NSFont.systemFont(ofSize: 11)
-        stack.addArrangedSubview(sortSlotButton)
-        
-        sortSNButton = NSButton(title: "按 SN 排序", target: self, action: #selector(sortBySN))
-        sortSNButton.bezelStyle = .rounded
-        sortSNButton.font = NSFont.systemFont(ofSize: 11)
-        stack.addArrangedSubview(sortSNButton)
-        
-        sortTimeButton = NSButton(title: "按时间排序", target: self, action: #selector(sortByTime))
-        sortTimeButton.bezelStyle = .rounded
-        sortTimeButton.font = NSFont.systemFont(ofSize: 11)
-        stack.addArrangedSubview(sortTimeButton)
-        
-        // 还原排序（按原始行号）
-        resetSortButton = NSButton(title: "还原排序", target: self, action: #selector(resetSort))
-        resetSortButton.bezelStyle = .rounded
-        resetSortButton.font = NSFont.systemFont(ofSize: 11)
-        stack.addArrangedSubview(resetSortButton)
-        
+
         let sep2 = makeToolbarSeparator()
         stack.addArrangedSubview(sep2)
         
@@ -210,7 +215,19 @@ extension HistoryWindowController {
         currentFailFilterButton.font = NSFont.systemFont(ofSize: 11)
         currentFailFilterButton.isEnabled = false
         stack.addArrangedSubview(currentFailFilterButton)
-        
+
+        // 默认屏蔽项（原侧栏入口，移至工具栏）
+        defaultBlockButton = NSButton(title: "默认屏蔽项", target: self, action: #selector(showBlockFailDialog(_:)))
+        defaultBlockButton.bezelStyle = .rounded
+        defaultBlockButton.font = NSFont.systemFont(ofSize: 11)
+        stack.addArrangedSubview(defaultBlockButton)
+
+        // 表格配置（原侧栏入口，移至工具栏）
+        let tableConfigButton = NSButton(title: "表格配置", target: self, action: #selector(showTableConfigDialog(_:)))
+        tableConfigButton.bezelStyle = .rounded
+        tableConfigButton.font = NSFont.systemFont(ofSize: 11)
+        stack.addArrangedSubview(tableConfigButton)
+
         // 导出
         exportCSVButton = NSButton(title: "导出 CSV", target: self, action: #selector(saveCSVButtonClicked))
         exportCSVButton.bezelStyle = .rounded
@@ -230,7 +247,12 @@ extension HistoryWindowController {
         searchField.target = self
         searchField.action = #selector(searchTextChanged(_:))
         searchField.sendsWholeSearchString = false
-        searchField.widthAnchor.constraint(equalToConstant: 200).isActive = true
+        // 窄屏时允许收缩：期望 200（低优先级），最小 120（必需）
+        let searchWidth = searchField.widthAnchor.constraint(equalToConstant: 200)
+        searchWidth.priority = .defaultLow
+        searchWidth.isActive = true
+        searchField.widthAnchor.constraint(greaterThanOrEqualToConstant: 120).isActive = true
+        searchField.setAccessibilityLabel("搜索")
         stack.addArrangedSubview(searchField)
         
         NSLayoutConstraint.activate([
@@ -448,22 +470,7 @@ extension HistoryWindowController {
         sBuildStatsView.widthAnchor.constraint(equalToConstant: 184).isActive = true
         sBuildStatsView.heightAnchor.constraint(greaterThanOrEqualToConstant: 40).isActive = true
         stack.addArrangedSubview(sBuildStatsView)
-        
-        // 屏蔽管理
-        let blockSection = createSidebarSection(title: "屏蔽管理")
-        stack.addArrangedSubview(blockSection)
-        
-        defaultBlockButton = NSButton(title: "默认屏蔽项", target: self, action: #selector(showBlockFailDialog(_:)))
-        defaultBlockButton.bezelStyle = .rounded
-        defaultBlockButton.font = NSFont.systemFont(ofSize: 11)
-        stack.addArrangedSubview(defaultBlockButton)
-        
-        // 表格配置
-        let tableConfigButton = NSButton(title: "表格配置", target: self, action: #selector(showTableConfigDialog(_:)))
-        tableConfigButton.bezelStyle = .rounded
-        tableConfigButton.font = NSFont.systemFont(ofSize: 11)
-        stack.addArrangedSubview(tableConfigButton)
-        
+
         // 约束
         NSLayoutConstraint.activate([
             scrollView.topAnchor.constraint(equalTo: sidebar.topAnchor, constant: 2),
@@ -554,16 +561,30 @@ extension HistoryWindowController {
     // MARK: - 侧栏切换
     @objc func toggleSidebar() {
         sidebarVisible.toggle()
-        sidebarView.isHidden = !sidebarVisible
-        
-        // 调整侧栏宽度约束
-        if let mainArea = sidebarView.superview {
-            for constraint in mainArea.constraints {
-                if constraint.firstItem as? NSView == sidebarView && constraint.firstAttribute == .width {
-                    constraint.constant = sidebarVisible ? 200 : 0
-                    break
-                }
+        let show = sidebarVisible
+        sidebarView.isHidden = !show
+        sidebarSeparatorView?.isHidden = !show
+
+        if show {
+            // 展开：停用备用约束（如有），激活侧栏约束 + 表格锚到分隔线
+            tableLeadingToMainConstraint?.isActive = false
+            sidebarLeadingConstraint?.isActive = true
+            sidebarWidthConstraint?.isActive = true
+            sidebarSepLeadingConstraint?.isActive = true
+            sidebarSepWidthConstraint?.isActive = true
+            tableLeadingToSepConstraint?.isActive = true
+        } else {
+            // 收起：停用侧栏约束 + 表格锚到分隔线，懒创建并激活表格锚到主区域左缘
+            sidebarLeadingConstraint?.isActive = false
+            sidebarWidthConstraint?.isActive = false
+            sidebarSepLeadingConstraint?.isActive = false
+            sidebarSepWidthConstraint?.isActive = false
+            tableLeadingToSepConstraint?.isActive = false
+            if tableLeadingToMainConstraint == nil,
+               let tbl = tableContainerView, let main = mainAreaView {
+                tableLeadingToMainConstraint = tbl.leadingAnchor.constraint(equalTo: main.leadingAnchor)
             }
+            tableLeadingToMainConstraint?.isActive = true
         }
     }
     

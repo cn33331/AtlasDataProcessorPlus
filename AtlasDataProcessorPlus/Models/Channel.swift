@@ -5,9 +5,9 @@
 //  Created by Your Name on 2026-01-29.
 //
 
-import Foundation
+import Cocoa
 
-class Channel {
+class Channel: Comparable {
     let group: String
     let slot: String
     var status: ChannelStatus = .waiting
@@ -22,15 +22,31 @@ class Channel {
         }
     }
     var showFailOnly: Bool = false
-    
+
     init(group: String, slot: String) {
         self.group = group
         self.slot = slot
         self.maxRows = AppConfig.shared.channelMaxRows
     }
-    
+
     var name: String {
         return "\(group)-\(slot)"
+    }
+
+    /// 用于排序的键（group 数字, slot 数字）
+    var sortKey: (group: Int, slot: Int) {
+        return AtlasUtils.sortKeyOf(groupSlotName: name)
+    }
+
+    static func < (lhs: Channel, rhs: Channel) -> Bool {
+        if lhs.sortKey.group != rhs.sortKey.group {
+            return lhs.sortKey.group < rhs.sortKey.group
+        }
+        return lhs.sortKey.slot < rhs.sortKey.slot
+    }
+
+    static func == (lhs: Channel, rhs: Channel) -> Bool {
+        return lhs.name == rhs.name
     }
     
     func addTestData(_ data: TestData) {

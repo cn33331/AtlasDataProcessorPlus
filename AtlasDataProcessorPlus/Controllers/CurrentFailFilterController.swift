@@ -3,26 +3,8 @@
 
 import Cocoa
 
-// 自定义搜索框，支持粘贴操作
-class CustomSearchField: NSSearchField {
-    override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        // 检查是否是 Command+V (粘贴)
-        if event.modifierFlags.contains(.command) && event.keyCode == 9 {
-            // 9 是 'v' 键的 keyCode
-            if let pasteboardString = NSPasteboard.general.string(forType: .string) {
-                // 获取当前选中的文本范围
-                let selectedRange = self.currentEditor()?.selectedRange
-                
-                // 插入粘贴的文本
-                if let editor = self.currentEditor() {
-                    editor.insertText(pasteboardString)
-                    return true
-                }
-            }
-        }
-        return super.performKeyEquivalent(with: event)
-    }
-}
+// 自定义搜索框，支持 Cmd+C/V/X/A（共享实现见 NSVStackLayout.swift）
+class CustomSearchField: ShortcutAwareSearchField {}
 
 class CurrentFailFilterController: NSViewController {
     
@@ -344,9 +326,9 @@ class CurrentFailFilterController: NSViewController {
         print("🔍 搜索失败用例或SN: \(searchText)")
         #endif
         
-        // 首先在失败用例列表中搜索
+        // 首先在失败用例列表中搜索（支持空格分隔多关键词 AND 匹配）
         for (index, failureCase) in failureCases.enumerated() {
-            if failureCase.localizedCaseInsensitiveContains(searchText) {
+            if AtlasUtils.matchesAllKeywords(searchText, in: [failureCase]) {
                 // 找到匹配的失败用例，切换到失败用例标签页
                 segmentedControl.selectedSegment = 0
                 segmentedControlChanged(segmentedControl)
@@ -366,7 +348,7 @@ class CurrentFailFilterController: NSViewController {
         // 如果在失败用例中没找到，在SN列表中搜索
         let sortedSNs = getSortedSNs()
         for (index, sn) in sortedSNs.enumerated() {
-            if sn.localizedCaseInsensitiveContains(searchText) {
+            if AtlasUtils.matchesAllKeywords(searchText, in: [sn]) {
                 // 找到匹配的SN，切换到SN标签页
                 segmentedControl.selectedSegment = 1
                 segmentedControlChanged(segmentedControl)
@@ -413,11 +395,9 @@ class CurrentFailFilterController: NSViewController {
                 var csvContent = "失败用例,出现次数\n"
                 for failureCase in self.failureCases {
                     let count = self.failureCaseCounts[failureCase] ?? 0
-                    csvContent += "\"\(failureCase)\",\(count)\n"
+                    csvContent += "\(AtlasUtils.escapeCSV(failureCase)),\(count)\n"
                 }
-                do {
-                    try csvContent.write(to: url, atomically: true, encoding: .utf8)
-                } catch {}
+                AtlasUtils.writeCSV(csvContent, to: url, context: "导出 CSV")
             }
         }
     }

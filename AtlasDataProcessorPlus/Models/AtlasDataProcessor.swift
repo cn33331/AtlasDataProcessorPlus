@@ -1,5 +1,6 @@
 // File: AtlasDataProcessor.swift (修复版)
 import Foundation
+import AppKit
 
 // ==================== 数据结构定义 ====================
 struct CSVRow {
@@ -57,6 +58,114 @@ struct GHConfig {
 
 // MARK: - 工具函数
 enum AtlasUtils {
+
+    // MARK: 小屏适配（工厂老显示器常见 1024×768 / 1366×768）
+
+    /// 主屏可用区域（扣除菜单栏/Dock）
+    static var visibleFrame: NSRect {
+        NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
+    }
+
+    /// 是否为小屏（可用区域任一边不足 1200×800）
+    static var isCompactScreen: Bool {
+        let f = visibleFrame
+        return f.width < 1200 || f.height < 800
+    }
+
+    /// 将期望窗口尺寸钳制到主屏可用区域内（四周留 20pt 边距）
+    static func clampedWindowSize(preferred: NSSize) -> NSSize {
+        let f = visibleFrame
+        let maxWidth = f.width - 40
+        let maxHeight = f.height - 40
+        return NSSize(
+            width: min(preferred.width, maxWidth),
+            height: min(preferred.height, maxHeight)
+        )
+    }
+
+    // MARK: 主题色（自动适配明暗模式）
+
+    /// FAIL 行背景色（浅色模式淡红，深色模式深红）
+    static let failRowBackground = NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? NSColor(red: 0.35, green: 0.12, blue: 0.12, alpha: 1.0)
+            : NSColor(red: 1.0, green: 0.85, blue: 0.85, alpha: 1.0)
+    }
+
+    /// 普通行背景色（跟随窗口）
+    static let defaultRowBackground = NSColor.windowBackgroundColor
+
+    /// 次要文本颜色
+    static let secondaryTextColor = NSColor.secondaryLabelColor
+
+    // MARK: CSV 转义
+
+    /// CSV 单元格转义：包含逗号/引号/换行时用双引号包裹并转义内部引号
+    static func escapeCSV(_ cell: String) -> String {
+        if cell.contains(",") || cell.contains("\"") || cell.contains("\n") || cell.contains("\r") {
+            return "\"" + cell.replacingOccurrences(of: "\"", with: "\"\"") + "\""
+        }
+        return cell
+    }
+
+    /// 将 CSV 内容写入指定 URL（带 UTF-8 BOM，Excel 可正确识别中文）
+    /// 失败时弹出错误提示框并返回 false
+    @discardableResult
+    static func writeCSV(_ content: String, to url: URL, context: String) -> Bool {
+        // BOM 让 Excel 以 UTF-8 打开，避免中文乱码
+        let bomContent = "\u{FEFF}" + content
+        do {
+            try bomContent.write(to: url, atomically: true, encoding: .utf8)
+            return true
+        } catch {
+            let alert = NSAlert()
+            alert.messageText = "\(context)失败"
+            alert.informativeText = "\(error.localizedDescription)\n\n目标位置：\(url.path)"
+            alert.alertStyle = .warning
+            alert.runModal()
+            return false
+        }
+    }
+
+    // MARK: 搜索
+
+    /// 空格分隔多关键词 AND 匹配：所有关键词都命中任一字段才算匹配
+    /// 例："sn123 voltage" 要求同时包含 sn123 和 voltage
+    static func matchesAllKeywords(_ searchText: String, in fields: [String]) -> Bool {
+        let keywords = searchText.lowercased()
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+        guard !keywords.isEmpty else { return true }
+        let haystack = fields.map { $0.lowercased() }.joined(separator: "\n")
+        return keywords.allSatisfy { haystack.contains($0) }
+    }
+
+    // MARK: 通道排序
+
+    /// 按 group 数字、slot 数字升序排序通道
+    static func sortedChannels(_ channels: [Channel]) -> [Channel] {
+        return channels.sorted { $0.sortKey < $1.sortKey }
+    }
+
+    /// 按 group-slot 排序通道名称
+    static func sortedChannelNames(_ names: [String]) -> [String] {
+        return names.sorted { name1, name2 in
+            let key1 = Self.sortKeyOf(groupSlotName: name1)
+            let key2 = Self.sortKeyOf(groupSlotName: name2)
+            if key1 != key2 { return key1 < key2 }
+            return name1 < name2
+        }
+    }
+
+    /// "group3-slot12" → (3, 12)；解析失败按 0 处理
+    static func sortKeyOf(groupSlotName: String) -> (group: Int, slot: Int) {
+        let parts = groupSlotName.components(separatedBy: "-")
+        guard parts.count >= 2 else { return (0, 0) }
+        let group = Int(parts[0].replacingOccurrences(of: "group", with: "")) ?? 0
+        let slot = Int(parts[1].replacingOccurrences(of: "slot", with: "")) ?? 0
+        return (group, slot)
+    }
+
     static func split(_ str: String, delimiter: Character) -> [String] {
         // 使用 split(omittingEmptySubsequences: false) 来保留空值
         return str.split(separator: delimiter, 
@@ -994,52 +1103,6 @@ extension AtlasDataProcessor {
         }
         
         return failInfoList
-    }
-}
-
-// MARK: - 扩展：支持 SwiftUI/Cocoa 的数据绑定
-extension AtlasDataProcessor {
-    
-    struct ProcessStatus: Identifiable {
-        let id = UUID()
-        let fileName: String
-        let status: String
-        let progress: Double
-        let message: String
-    }
-    
-    class ObservableProcessor: ObservableObject {
-        @Published var isProcessing = false
-        @Published var progress: Float = 0.0
-        @Published var statusMessage = ""
-        @Published var statistics: [String: Any] = [:]
-        @Published var failures: [String] = []
-        
-        private let processor = AtlasDataProcessor()
-        
-        func processDirectory(_ path: String) {
-            isProcessing = true
-            statusMessage = "开始处理..."
-            
-            processor.runAsync(rootPath: path) { [weak self] progressValue, message in
-                DispatchQueue.main.async {
-                    self?.progress = progressValue
-                    self?.statusMessage = message
-                }
-            } completion: { [weak self] success, message, error in
-                DispatchQueue.main.async {
-                    self?.isProcessing = false
-                    
-                    if success {
-                        self?.statusMessage = message ?? "处理完成"
-                        self?.statistics = self?.processor.getStatistics() ?? [:]
-                        self?.failures = self?.processor.getFailureSummary(snColumnName: "", channelColumnName: "") ?? []
-                    } else {
-                        self?.statusMessage = error?.localizedDescription ?? "处理失败"
-                    }
-                }
-            }
-        }
     }
 }
 

@@ -16,7 +16,6 @@
 		AF9DEF092F76C536009A399B /* HistoryWindowController+Table.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF9DEF052F76C536009A399B /* HistoryWindowController+Table.swift */; };
 		AF9DEF0A2F76C536009A399B /* HistoryWindowController+Actions.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF9DEF062F76C536009A399B /* HistoryWindowController+Actions.swift */; };
 		AFA138E82F2BA886006538C2 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA138E72F2BA886006538C2 /* AppDelegate.swift */; };
-		AFA138EA2F2BA886006538C2 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA138E92F2BA886006538C2 /* ViewController.swift */; };
 		AFA138EC2F2BA888006538C2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AFA138EB2F2BA888006538C2 /* Assets.xcassets */; };
 		AFA138FA2F2BA889006538C2 /* AtlasDataProcessorPlusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA138F92F2BA889006538C2 /* AtlasDataProcessorPlusTests.swift */; };
 		AFA139042F2BA889006538C2 /* AtlasDataProcessorPlusUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA139032F2BA889006538C2 /* AtlasDataProcessorPlusUITests.swift */; };
@@ -68,7 +67,6 @@
 		AF9DEF062F76C536009A399B /* HistoryWindowController+Actions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "HistoryWindowController+Actions.swift"; sourceTree = "<group>"; };
 		AFA138E42F2BA886006538C2 /* AtlasDataProcessorPlus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AtlasDataProcessorPlus.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AFA138E72F2BA886006538C2 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		AFA138E92F2BA886006538C2 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
 		AFA138EB2F2BA888006538C2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AFA138F02F2BA888006538C2 /* AtlasDataProcessorPlus.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AtlasDataProcessorPlus.entitlements; sourceTree = "<group>"; };
 		AFA138F52F2BA889006538C2 /* AtlasDataProcessorPlusTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AtlasDataProcessorPlusTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -145,7 +143,6 @@
 				AFA139652F2BAF8A006538C2 /* Controllers */,
 				AFA139542F2BAF27006538C2 /* Models */,
 				AFA138E72F2BA886006538C2 /* AppDelegate.swift */,
-				AFA138E92F2BA886006538C2 /* ViewController.swift */,
 				AFA138EB2F2BA888006538C2 /* Assets.xcassets */,
 				AFA138F02F2BA888006538C2 /* AtlasDataProcessorPlus.entitlements */,
 				AFA1398B2F2BB658006538C2 /* Info.plist */,
@@ -359,7 +356,6 @@
 				AFB318DE2FF6C09900E51637 /* TabbedToolWindowController.swift in Sources */,
 				AFA139802F2BB17E006538C2 /* NSVStackLayout.swift in Sources */,
 				AF2CA1B32FC6011C001C9EAA /* AppConfig.swift in Sources */,
-				AFA138EA2F2BA886006538C2 /* ViewController.swift in Sources */,
 				AFA138E82F2BA886006538C2 /* AppDelegate.swift in Sources */,
 				AFA1398E2F2BC581006538C2 /* main.swift in Sources */,
 				AF9DEF092F76C536009A399B /* HistoryWindowController+Table.swift in Sources */,
@@ -556,7 +552,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
-				MARKETING_VERSION = 3.0;
+				MARKETING_VERSION = 3.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.bsd.AtlasDataProcessorPlus;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -586,7 +582,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
-				MARKETING_VERSION = 3.0;
+				MARKETING_VERSION = 3.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.bsd.AtlasDataProcessorPlus;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

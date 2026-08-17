@@ -3,26 +3,8 @@
 
 import Cocoa
 
-// 自定义文本框，支持粘贴操作
-class CustomTextField: NSTextField {
-    override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        // 检查是否是 Command+V (粘贴)
-        if event.modifierFlags.contains(.command) && event.keyCode == 9 {
-            // 9 是 'v' 键的 keyCode
-            if let pasteboardString = NSPasteboard.general.string(forType: .string) {
-                // 获取当前选中的文本范围
-                let selectedRange = self.currentEditor()?.selectedRange
-                
-                // 插入粘贴的文本
-                if let editor = self.currentEditor() {
-                    editor.insertText(pasteboardString)
-                    return true
-                }
-            }
-        }
-        return super.performKeyEquivalent(with: event)
-    }
-}
+// 自定义文本框，支持 Cmd+C/V/X/A（共享实现见 NSVStackLayout.swift）
+class CustomTextField: ShortcutAwareTextField {}
 
 class TableConfigPopoverController: NSViewController {
     

@@ -125,16 +125,16 @@ class TabbedToolWindowController: NSWindowController, NSTableViewDataSource, NST
                         if identifier == "status" {
                             switch channel.status {
                             case .running:
-                                textField.textColor = NSColor.blue
+                                textField.textColor = NSColor.systemBlue
                             case .waiting:
-                                textField.textColor = NSColor.gray
+                                textField.textColor = AtlasUtils.secondaryTextColor
                             case .ended:
-                                textField.textColor = NSColor.green
+                                textField.textColor = NSColor.systemGreen
                             case .stopped:
-                                textField.textColor = NSColor.red
+                                textField.textColor = NSColor.systemRed
                             }
                         } else if identifier == "fail" {
-                            textField.textColor = channel.failCount > 0 ? failColor : NSColor.green
+                            textField.textColor = channel.failCount > 0 ? failColor : NSColor.systemGreen
                         } else if identifier == "pass" {
                             textField.textColor = passColor
                         } else {
@@ -607,16 +607,16 @@ class TabbedToolWindowController: NSWindowController, NSTableViewDataSource, NST
                 if identifier == "status" {
                     switch channel.status {
                     case .running:
-                        textField.textColor = NSColor.blue
+                        textField.textColor = NSColor.systemBlue
                     case .waiting:
-                        textField.textColor = NSColor.gray
+                        textField.textColor = AtlasUtils.secondaryTextColor
                     case .ended:
-                        textField.textColor = NSColor.green
+                        textField.textColor = NSColor.systemGreen
                     case .stopped:
-                        textField.textColor = NSColor.red
+                        textField.textColor = NSColor.systemRed
                     }
                 } else if identifier == "fail" {
-                    textField.textColor = channel.failCount > 0 ? failColor : NSColor.green
+                    textField.textColor = channel.failCount > 0 ? failColor : NSColor.systemGreen
                     textField.font = NSFont.systemFont(ofSize: CGFloat(currentFontSize), weight: .bold)
                 } else if identifier == "pass" {
                     textField.textColor = passColor

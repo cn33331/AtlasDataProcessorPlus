@@ -7,6 +7,43 @@
 
 import Cocoa
 
+// MARK: - 文本快捷键支持（共享实现）
+// 弹窗/Popover 中的 NSTextField/NSSearchField 经常收不到 Cmd+C/V/X/A，
+// 统一在此实现，供各弹窗控制器复用。
+
+enum TextShortcutHandler {
+    /// 处理 Cmd+C/V/X/A，命中并派发成功返回 true
+    static func handle(_ event: NSEvent, from sender: NSView) -> Bool {
+        guard event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
+              let chars = event.charactersIgnoringModifiers else {
+            return false
+        }
+        switch chars {
+        case "c": return NSApp.sendAction(#selector(NSText.copy(_:)), to: nil, from: sender)
+        case "v": return NSApp.sendAction(#selector(NSText.paste(_:)), to: nil, from: sender)
+        case "x": return NSApp.sendAction(#selector(NSText.cut(_:)), to: nil, from: sender)
+        case "a": return NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: sender)
+        default: return false
+        }
+    }
+}
+
+/// 支持 Cmd+C/V/X/A 的文本框
+class ShortcutAwareTextField: NSTextField {
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if TextShortcutHandler.handle(event, from: self) { return true }
+        return super.performKeyEquivalent(with: event)
+    }
+}
+
+/// 支持 Cmd+C/V/X/A 的搜索框
+class ShortcutAwareSearchField: NSSearchField {
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if TextShortcutHandler.handle(event, from: self) { return true }
+        return super.performKeyEquivalent(with: event)
+    }
+}
+
 class NSVStackLayout: NSView {
     
     // MARK: - 属性

@@ -41,6 +41,7 @@ extension HistoryWindowController {
         processButton.isEnabled = false
         browseButton.isEnabled = false
         statusLabel.stringValue = "正在处理数据..."
+        progressIndicator.startAnimation(nil)
         
         reparseButton.isEnabled = false
         exportCSVButton.isEnabled = false
@@ -56,9 +57,9 @@ extension HistoryWindowController {
                 self.isProcessing = false
                 self.processButton.isEnabled = true
                 self.browseButton.isEnabled = true
+                self.progressIndicator.stopAnimation(nil)
                 
                 if success {
-                    self.processedData = processor.getFinalData()
                     self.processedDataPlus = processor.getFinalDataPlus()
                     
                     // 提取上限/下限行（processedDataPlus[1] 和 [2]）
@@ -86,7 +87,7 @@ extension HistoryWindowController {
                     
                     self.statusLabel.stringValue = "处理完成"
                     self.reparseButton.isEnabled = true
-                    self.exportCSVButton.isEnabled = !self.processedData.isEmpty
+                    self.exportCSVButton.isEnabled = !self.allRecords.isEmpty
                     self.currentFailFilterButton.isEnabled = !self.failures.isEmpty
                     
                     let fileCount = self.statistics["total_files"] as? Int ?? 0
@@ -116,7 +117,7 @@ extension HistoryWindowController {
         
         let headerRow = processedDataPlus[0]
         
-        // 查找关键列索引
+        // 查找关键列索引（动态从表头查找，保留原索引为 fallback）
         let snColName = AppConfig.shared.tableConfig["sn"] ?? "PrimaryIdentity"
         let channelColName = AppConfig.shared.tableConfig["channel"] ?? ""
         let sBuildColName = AppConfig.shared.tableConfig["s_build"] ?? "S_BUILD"
@@ -128,9 +129,13 @@ extension HistoryWindowController {
         var sBuildIndex = headerRow.firstIndex(of: sBuildColName) ?? 3
         if sBuildIndex < 0 || sBuildIndex >= headerRow.count { sBuildIndex = 3 }
         
-        let statusIndex = 7
-        let timeIndex = 9
-        let testNameIndex = 11
+        // 固定列也改为动态查找（原来硬编码 7/9/11/12/13）
+        let statusIndex = headerRow.firstIndex(of: "Test Pass/Fail Status") ?? 7
+        let timeIndex = headerRow.firstIndex(of: "EndTime") ?? 9
+        let testNameIndex = headerRow.firstIndex(of: "List of Failing Tests") ?? 11
+        let filePathIndex = headerRow.firstIndex(of: "file_path") ?? 12
+        // 测量参数列从 file_path 之后开始
+        let fixedColCount = filePathIndex + 1
         
         for i in 4..<processedDataPlus.count {
             let row = processedDataPlus[i]
@@ -144,7 +149,6 @@ extension HistoryWindowController {
             let testName = testNameIndex < row.count ? row[testNameIndex] : ""
             
             // 测量数据摘要：取属性列和测量列中的非空值
-            let fixedColCount = 13  // 12 fixed + 1 file path
             var measurementParts: [String] = []
             for j in fixedColCount..<row.count {
                 let val = row[j].trimmingCharacters(in: .whitespaces)
@@ -163,7 +167,7 @@ extension HistoryWindowController {
                 testTime: testTime,
                 testName: testName,
                 measurementData: measurementData,
-                filePath: processedDataPlus[i].count > 12 ? processedDataPlus[i][12] : "",
+                filePath: filePathIndex < row.count ? row[filePathIndex] : "",
                 rowData: row,
                 headerRow: headerRow
             )
@@ -205,13 +209,10 @@ extension HistoryWindowController {
             records = records.filter { !excludedSBuilds.contains($0.sBuild) && !excludedSBuilds.contains($0.sBuild.isEmpty ? "?" : $0.sBuild) }
         }
 
-        // 搜索过滤
+        // 搜索过滤（空格分隔多关键词，AND 匹配 SN/S_BUILD/测试名）
         if !searchText.isEmpty {
-            let lower = searchText.lowercased()
             records = records.filter {
-                $0.sn.lowercased().contains(lower) ||
-                $0.sBuild.lowercased().contains(lower) ||
-                $0.testName.lowercased().contains(lower)
+                AtlasUtils.matchesAllKeywords(searchText, in: [$0.sn, $0.sBuild, $0.testName])
             }
         }
 
@@ -236,7 +237,16 @@ extension HistoryWindowController {
         let ascending = sortAscending
         switch currentSortField {
         case "slot":
-            records.sort { ascending ? ($0.slotID < $1.slotID) : ($0.slotID > $1.slotID) }
+            // 数值排序：SlotID 通常是纯数字，字符串排序会导致 "10" < "2"
+            records.sort {
+                let a = Int($0.slotID)
+                let b = Int($1.slotID)
+                if let a = a, let b = b {
+                    return ascending ? (a < b) : (a > b)
+                }
+                // 非数字回退到字符串比较
+                return ascending ? ($0.slotID < $1.slotID) : ($0.slotID > $1.slotID)
+            }
         case "sn":
             records.sort { ascending ? ($0.sn < $1.sn) : ($0.sn > $1.sn) }
         case "time":
@@ -287,10 +297,13 @@ extension HistoryWindowController {
         applyFilters()
     }
     
-    // MARK: - 搜索
+    // MARK: - 搜索（300ms 防抖，避免大数据量时每次按键都全量筛选）
     @objc func searchTextChanged(_ sender: NSSearchField) {
         searchText = sender.stringValue
-        applyFilters()
+        searchDebounceTimer?.invalidate()
+        searchDebounceTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
+            self?.applyFilters()
+        }
     }
     
     // MARK: - 日期过滤
@@ -388,70 +401,55 @@ extension HistoryWindowController {
     }
     
     // MARK: - 排序
-    @objc func sortBySlot() {
-        currentSortField = "slot"
-        sortAscending.toggle()
-        applyFilters()
-    }
-    
-    @objc func sortBySN() {
-        currentSortField = "sn"
-        sortAscending.toggle()
-        applyFilters()
-    }
-    
-    @objc func sortByTime() {
-        currentSortField = "time"
-        sortAscending.toggle()
-        applyFilters()
-    }
-    
-    @objc func resetSort() {
-        currentSortField = "index"
-        sortAscending = true
-        applyFilters()
-    }
-    
-    // MARK: - 导出
+    // 排序统一由表头点击完成（HistoryWindowController+Table.swift didClick）；
+    // 点击 "#" 列头可恢复原始行号顺序
+
+    // MARK: - 导出（导出原始完整数据：表头 + 上限行 + 下限行 + 全部数据行，不经过筛选）
     @objc func saveCSVButtonClicked() {
-        guard !processedData.isEmpty else { return }
-        guard let processor = processor else { return }
-        
+        guard !processedDataPlus.isEmpty else {
+            showAlert(title: "提示", message: "没有可导出的数据")
+            return
+        }
+
         let savePanel = NSSavePanel()
         savePanel.allowedFileTypes = ["csv"]
-        savePanel.nameFieldStringValue = "AtlasCombineData_\(processor.getTimestamp()).csv"
-        savePanel.message = "选择保存 CSV 文件的位置"
-        
+        let ts = processor?.getTimestamp()
+            ?? ISO8601DateFormatter().string(from: Date())
+        savePanel.nameFieldStringValue = "AtlasHistory_\(ts).csv"
+        savePanel.message = "导出原始完整数据（共 \(processedDataPlus.count) 行）"
+
         savePanel.beginSheetModal(for: window!) { [weak self] response in
-            guard response == .OK, let url = savePanel.url else { return }
-            do {
-                let csvContent = self?.processedData.map { row in
-                    row.map { cell in
-                        if cell.contains(",") || cell.contains("\"") || cell.contains("\n") {
-                            return "\"\(cell.replacingOccurrences(of: "\"", with: "\"\"") )\""
-                        }
-                        return cell
-                    }.joined(separator: ",")
-                }.joined(separator: "\n")
-                try csvContent?.write(to: url, atomically: true, encoding: .utf8)
-                self?.showAlert(title: "成功", message: "CSV 文件已保存")
-            } catch {
-                self?.showAlert(title: "保存失败", message: error.localizedDescription)
+            guard response == .OK, let url = savePanel.url, let self = self else { return }
+
+            // 整表导出 processedDataPlus：保持原始 CSV 列结构与全部数据
+            let lines = self.processedDataPlus.map { row in
+                row.map { AtlasUtils.escapeCSV($0) }.joined(separator: ",")
+            }
+            let csvContent = lines.joined(separator: "\n")
+            let success = AtlasUtils.writeCSV(csvContent, to: url, context: "导出原始数据")
+            if success {
+                self.showAlert(title: "成功", message: "已导出原始完整数据（\(self.processedDataPlus.count) 行）")
             }
         }
     }
     
     // MARK: - 详情弹窗
     func showDetailModal(for record: TestRecord) {
+        // 尺寸按屏幕钳制（小屏显示器放不下 900×600）
+        let modalSize = AtlasUtils.clampedWindowSize(preferred: NSSize(width: 900, height: 600))
+        let vf = AtlasUtils.visibleFrame
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 900, height: 600),
+            contentRect: NSRect(x: 0, y: 0, width: modalSize.width, height: modalSize.height),
             styleMask: [.titled, .closable, .resizable],
             backing: .buffered,
             defer: false
         )
         window.title = "测试详情"
         window.isReleasedWhenClosed = false
-        window.minSize = NSSize(width: 700, height: 400)
+        window.minSize = NSSize(
+            width: min(700, vf.width - 40),
+            height: min(400, vf.height - 40)
+        )
         
         let controller = DetailModalController(record: record, upperLimitRow: upperLimitRow, lowerLimitRow: lowerLimitRow)
         window.contentViewController = controller
@@ -460,9 +458,13 @@ extension HistoryWindowController {
         window.makeKeyAndOrderFront(nil)
         if let parentWindow = self.window {
             let parentFrame = parentWindow.frame
-            let x = parentFrame.midX - 450
-            let y = parentFrame.midY - 300
-            window.setFrameOrigin(NSPoint(x: x, y: y))
+            let x = parentFrame.midX - modalSize.width / 2
+            let y = parentFrame.midY - modalSize.height / 2
+            // 钳制到屏幕可视区域内
+            let vf = AtlasUtils.visibleFrame
+            let clampedX = min(max(x, vf.minX), vf.maxX - modalSize.width)
+            let clampedY = min(max(y, vf.minY), vf.maxY - modalSize.height)
+            window.setFrameOrigin(NSPoint(x: clampedX, y: clampedY))
         }
     }
     
@@ -470,8 +472,7 @@ extension HistoryWindowController {
     @objc func showBlockFailDialog(_ sender: Any?) {
         let popover = NSPopover()
         popover.behavior = .semitransient
-        popover.appearance = NSAppearance(named: .aqua)
-        
+
         let popoverController = BlockFailPopoverController()
         popoverController.blockedFailures = Array(AppConfig.shared.blockedFailures)
         popoverController.setPopover(popover)
@@ -559,7 +560,6 @@ extension HistoryWindowController {
         let popover = NSPopover()
         popover.behavior = .semitransient
         popover.animates = true
-        popover.appearance = NSAppearance(named: .aqua)
         
         let filterController = CurrentFailFilterController()
         filterController.failureCases = Array(allFailureCases).sorted { failureCaseCounts[$0] ?? 0 > failureCaseCounts[$1] ?? 0 }
@@ -586,12 +586,9 @@ extension HistoryWindowController {
     }
     
     @objc func showTableConfigDialog(_ sender: Any) {
-        loadTableConfig()
-        
         let popover = NSPopover()
         popover.behavior = .semitransient
         popover.animates = true
-        popover.appearance = NSAppearance(named: .aqua)
         
         let configController = TableConfigPopoverController()
         configController.sn = AppConfig.shared.tableConfig["sn"] ?? "PrimaryIdentity"
@@ -615,10 +612,6 @@ extension HistoryWindowController {
         }
     }
     
-    // MARK: - 配置加载
-    func loadTableConfig() {}
-    func loadBlockedFailures() {}
-    
     // MARK: - 工具方法
     func showAlert(title: String, message: String) {
         let alert = NSAlert()
@@ -630,38 +623,20 @@ extension HistoryWindowController {
     }
     
     static func createAndShow() -> HistoryWindowController {
-        debugLog("🔍 [HW] createAndShow - START")
+        // 窗口尺寸按屏幕钳制（工厂小屏显示器放不下 1200×700）
+        let winSize = AtlasUtils.clampedWindowSize(preferred: NSSize(width: 1200, height: 700))
         let windowController = HistoryWindowController(window: NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 1200, height: 700),
+            contentRect: NSRect(x: 0, y: 0, width: winSize.width, height: winSize.height),
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         ))
-        debugLog("🔍 [HW] createAndShow - window created, frame: \(windowController.window?.frame ?? .zero)")
         windowController.showWindow(nil)
         windowController.window?.center()
-        debugLog("🔍 [HW] createAndShow - after showWindow, frame: \(windowController.window?.frame ?? .zero)")
         // 窗口打开后自动开始处理数据
         DispatchQueue.main.async {
             windowController.processButtonClicked()
         }
-        debugLog("🔍 [HW] createAndShow - DONE")
         return windowController
-    }
-}
-
-/// 将调试日志写入 /tmp/hw_debug.log 文件
-func debugLog(_ msg: String) {
-    let f = "/tmp/hw_debug.log"
-    let timestamp = ISO8601DateFormatter().string(from: Date())
-    let line = "[\(timestamp)] \(msg)\n"
-    if let data = line.data(using: .utf8) {
-        if let handle = FileHandle(forWritingAtPath: f) {
-            handle.seekToEndOfFile()
-            handle.write(data)
-            handle.closeFile()
-        } else {
-            try? data.write(to: URL(fileURLWithPath: f), options: .atomic)
-        }
     }
 }

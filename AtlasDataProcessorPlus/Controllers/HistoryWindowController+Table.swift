@@ -12,7 +12,7 @@ extension HistoryWindowController: NSTableViewDelegate, NSTableViewDataSource {
     /// 获取记录的第一个未屏蔽的 fail 测试项信息
     /// 通过 headerRow 查找测试项对应的测量值
     /// 返回 (显示名称, 对应测量值, 测试项位置索引, headerRow列索引)
-    private func firstUnblockedFailItem(for record: TestRecord) -> (name: String, value: String, pos: Int, idx: Int)? {
+    func firstUnblockedFailItem(for record: TestRecord) -> (name: String, value: String, pos: Int, idx: Int)? {
         guard record.status == "FAIL" else { return nil }
         
         let testNames = record.testName.components(separatedBy: ";")
@@ -133,6 +133,50 @@ extension HistoryWindowController: NSTableViewDelegate, NSTableViewDataSource {
     func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool {
         return true
     }
+
+    // 点击表头排序（与右键菜单排序共用 currentSortField / sortAscending）
+    func tableView(_ tableView: NSTableView, didClick tableColumn: NSTableColumn) {
+        let fieldByTitle: [String: String] = [
+            "测试时间": "time",
+            "SN": "sn",
+            "SlotID": "slot"
+        ]
+        let newField = fieldByTitle[tableColumn.title] ?? "index"
+
+        if currentSortField == newField {
+            sortAscending.toggle()
+        } else {
+            currentSortField = newField
+            sortAscending = true
+        }
+        updateSortIndicator(clickedColumn: tableColumn)
+        applyFilters()
+    }
+
+    /// 在表头显示排序方向箭头（表头点击与右键菜单排序共用）
+    /// clickedColumn 为 nil 时按 currentSortField 自动定位列
+    func updateSortIndicator(clickedColumn: NSTableColumn?) {
+        let titleByField: [String: String] = [
+            "time": "测试时间",
+            "sn": "SN",
+            "slot": "SlotID"
+        ]
+        let activeTitle = clickedColumn?.title
+            ?? titleByField[currentSortField]
+            ?? "#"   // index 排序对应首列
+
+        for column in tableView.tableColumns {
+            // 去掉可能已有的箭头后缀，得到原始标题
+            let baseTitle = column.title
+                .replacingOccurrences(of: " ▲", with: "")
+                .replacingOccurrences(of: " ▼", with: "")
+            if column.title == activeTitle || baseTitle == activeTitle {
+                column.headerCell.stringValue = baseTitle + (sortAscending ? " ▲" : " ▼")
+            } else {
+                column.headerCell.stringValue = baseTitle
+            }
+        }
+    }
     
     // 右键菜单 — 使用自定义 tableView 子类统一处理跨版本兼容
     func buildContextMenu(row: Int) -> NSMenu? {
@@ -219,13 +263,25 @@ extension HistoryWindowController: NSTableViewDelegate, NSTableViewDataSource {
     }
 }
 
-// MARK: - 支持右键菜单的 TableView 子类
+// MARK: - 支持右键菜单 + Enter 键的 TableView 子类
 class ContextMenuTableView: NSTableView {
     var contextMenuHandler: ((Int) -> NSMenu?)?
+    /// Enter/Return 键回调，参数为当前选中行号
+    var enterKeyHandler: (() -> Void)?
     
     override func menu(for event: NSEvent) -> NSMenu? {
         let point = convert(event.locationInWindow, from: nil)
         let row = self.row(at: point)
         return contextMenuHandler?(row)
+    }
+    
+    override func keyDown(with event: NSEvent) {
+        // Enter / Return 键打开详情
+        if event.keyCode == 36, // Return 键
+           let handler = enterKeyHandler {
+            handler()
+            return
+        }
+        super.keyDown(with: event)
     }
 }
