@@ -17,6 +17,7 @@ class AppConfig {
         static let summaryColumns = "SummaryColumns"
         static let tableConfig = "TableConfig"
         static let blockedFailures = "BlockedFailures"
+        static let controlPanelCollapsed = "ControlPanelCollapsed"
     }
     
     private var configFilePath: String {
@@ -72,7 +73,8 @@ class AppConfig {
             Keys.summaryWindowY: summaryWindowY,
             Keys.summaryColumns: summaryColumns,
             Keys.tableConfig: tableConfig,
-            Keys.blockedFailures: Array(blockedFailures)
+            Keys.blockedFailures: Array(blockedFailures),
+            Keys.controlPanelCollapsed: controlPanelCollapsed
         ]
         
         do {
@@ -106,6 +108,18 @@ class AppConfig {
     }
     
     private func setStringValue(key: String, value: String) {
+        defaults.set(value, forKey: key)
+        configDict[key] = value
+    }
+
+    private func getBoolValue(key: String, defaultValue: Bool) -> Bool {
+        if let value = configDict[key] as? Bool {
+            return value
+        }
+        return defaults.object(forKey: key) as? Bool ?? defaultValue
+    }
+
+    private func setBoolValue(key: String, value: Bool) {
         defaults.set(value, forKey: key)
         configDict[key] = value
     }
@@ -223,6 +237,16 @@ class AppConfig {
             if let data = try? JSONSerialization.data(withJSONObject: Array(newValue)) {
                 defaults.set(data, forKey: Keys.blockedFailures)
             }
+        }
+    }
+
+    /// 主窗口控制面板是否处于折叠状态（持久化到配置文件，默认折叠）
+    var controlPanelCollapsed: Bool {
+        get {
+            return getBoolValue(key: Keys.controlPanelCollapsed, defaultValue: true)
+        }
+        set {
+            setBoolValue(key: Keys.controlPanelCollapsed, value: newValue)
         }
     }
 }

@@ -39,7 +39,23 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSSpl
     private var toggleSummaryButton: NSButton!
     private var statusBar: NSTextField!
 
-    
+    /// 控制面板标题条（折叠后仍保留）
+    private var panelTitleBar: NSView!
+    /// 控制面板内容区（折叠时隐藏）
+    private var panelContentContainer: NSView!
+    /// 折叠/展开指示按钮（chevron）
+    private var disclosureButton: NSButton!
+    /// 控制面板高度约束（折叠动画时修改其 constant）
+    private var controlViewHeightConstraint: NSLayoutConstraint!
+    /// chevron 图像（macOS 11+ 使用 SF Symbols，低版本回退字符）
+    private var disclosureDownImage: NSImage?
+    private var disclosureRightImage: NSImage?
+
+    /// 控制面板展开高度（标题条 28 + 两行控件 52）
+    private let panelExpandedHeight: CGFloat = 80
+    /// 控制面板折叠后高度（仅标题条）
+    private let panelTitleBarHeight: CGFloat = 28
+
     // 配置
     private var maxRows: Int = AppConfig.shared.channelMaxRows {
         didSet {
@@ -49,6 +65,8 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSSpl
     private var autoScroll: Bool = true
     private var showFailOnly: Bool = false
     private var isSummaryVisible: Bool = true
+    /// 控制面板是否折叠（从配置恢复）
+    private var isPanelCollapsed: Bool = AppConfig.shared.controlPanelCollapsed
     
     // ✅ 添加无参数初始化方法
     convenience init() {
@@ -212,13 +230,18 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSSpl
         statusBar.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(statusBar)
         
+        // 控制面板高度约束（折叠/展开时动态修改）
+        controlViewHeightConstraint = controlView.heightAnchor.constraint(
+            equalToConstant: isPanelCollapsed ? panelTitleBarHeight : panelExpandedHeight
+        )
+        controlViewHeightConstraint.isActive = true
+
         // 设置布局约束
         NSLayoutConstraint.activate([
             // 控制面板约束
             controlView.topAnchor.constraint(equalTo: contentView.topAnchor),
             controlView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             controlView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            controlView.heightAnchor.constraint(equalToConstant: 80),
             
             // 分割视图约束
             splitView.topAnchor.constraint(equalTo: controlView.bottomAnchor),
@@ -239,22 +262,84 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSSpl
 
         controlView = NSView()
         controlView.wantsLayer = true
+        // 折叠动画时裁剪溢出的内容区，避免内容悬浮在表格上方
+        controlView.layer?.masksToBounds = true
         controlView.layer?.backgroundColor = NSColor.separatorColor.withAlphaComponent(0.3).cgColor
 
         // 先创建所有视图组件
         createAllViews()
 
+        // MARK: 标题条（折叠后仍然保留）
+        let titleBar = NSView()
+        titleBar.translatesAutoresizingMaskIntoConstraints = false
+        controlView.addSubview(titleBar)
+        panelTitleBar = titleBar
+
+        // 标题条底部分隔线（先添加，位于最底层，不拦截点击）
+        let titleDivider = NSBox()
+        titleDivider.boxType = .separator
+        titleDivider.translatesAutoresizingMaskIntoConstraints = false
+        titleBar.addSubview(titleDivider)
+
+        // 整条标题条的点击区域（无边框按钮，位于内容之下），
+        // 空白区域点击可折叠/展开；上方的复选框、历史按钮优先响应
+        let titleClickButton = NSButton(title: "", target: self, action: #selector(toggleControlPanel))
+        titleClickButton.isBordered = false
+        titleClickButton.setButtonType(.momentaryChange)
+        titleClickButton.translatesAutoresizingMaskIntoConstraints = false
+        titleClickButton.setAccessibilityLabel("折叠或展开控制面板")
+        titleBar.addSubview(titleClickButton)
+
+        // 折叠指示箭头
+        disclosureButton = makeDisclosureButton()
+
+        // 标题文字本身也可点击折叠
+        let titleTextButton = NSButton()
+        titleTextButton.isBordered = false
+        titleTextButton.target = self
+        titleTextButton.action = #selector(toggleControlPanel)
+        titleTextButton.translatesAutoresizingMaskIntoConstraints = false
+        titleTextButton.attributedTitle = NSAttributedString(
+            string: "控制面板",
+            attributes: [
+                .font: NSFont.systemFont(ofSize: 12, weight: .semibold),
+                .foregroundColor: NSColor.secondaryLabelColor
+            ]
+        )
+
+        // 弹性间距，把高频操作推到右侧（点击穿透到标题条按钮）
+        let spacer = ClickThroughView()
+        spacer.translatesAutoresizingMaskIntoConstraints = false
+        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+
+        // 标题行：箭头 + 标题 ......... 只显示FAIL行 + 打开历史数据处理（折叠后仍可见）
+        let titleStack = ClickThroughStackView(views: [
+            disclosureButton, titleTextButton, spacer,
+            showFailOnlyCheckbox!, openHistoryButton!
+        ])
+        titleStack.orientation = .horizontal
+        titleStack.spacing = 8
+        titleStack.alignment = .centerY
+        titleStack.translatesAutoresizingMaskIntoConstraints = false
+        titleBar.addSubview(titleStack)
+
+        // MARK: 内容区（折叠时隐藏）
+        let contentContainer = NSView()
+        contentContainer.translatesAutoresizingMaskIntoConstraints = false
+        controlView.addSubview(contentContainer)
+        panelContentContainer = contentContainer
+
         // 两行弹性布局（小屏/大屏通用，NSStackView 自动处理压缩）：
-        // 行 1：监控路径 + 打开历史数据处理
+        // 行 1：监控路径
         // 行 2：最大行数 + 复选框 + 操作按钮
-        let row1 = NSStackView(views: [pathLabelTitle, pathLabel, openHistoryButton])
+        let row1 = NSStackView(views: [pathLabelTitle, pathLabel])
         row1.orientation = .horizontal
         row1.spacing = 8
         row1.alignment = .centerY
 
         let row2 = NSStackView(views: [
             maxRowsLabel!, maxRowsTextField!, maxRowsStepper!,
-            autoScrollCheckbox!, showFailOnlyCheckbox!,
+            autoScrollCheckbox!,
             clearButton!, toggleSummaryButton!
         ])
         row2.orientation = .horizontal
@@ -266,17 +351,115 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSSpl
         rows.spacing = 4
         rows.alignment = .leading
         rows.translatesAutoresizingMaskIntoConstraints = false
-        controlView.addSubview(rows)
+        contentContainer.addSubview(rows)
 
         NSLayoutConstraint.activate([
-            rows.leadingAnchor.constraint(equalTo: controlView.leadingAnchor, constant: 8),
-            rows.trailingAnchor.constraint(lessThanOrEqualTo: controlView.trailingAnchor, constant: -8),
-            rows.topAnchor.constraint(greaterThanOrEqualTo: controlView.topAnchor, constant: 4),
-            rows.bottomAnchor.constraint(lessThanOrEqualTo: controlView.bottomAnchor, constant: -4),
-            rows.centerYAnchor.constraint(equalTo: controlView.centerYAnchor),
+            // 标题条
+            titleBar.topAnchor.constraint(equalTo: controlView.topAnchor),
+            titleBar.leadingAnchor.constraint(equalTo: controlView.leadingAnchor),
+            titleBar.trailingAnchor.constraint(equalTo: controlView.trailingAnchor),
+            titleBar.heightAnchor.constraint(equalToConstant: panelTitleBarHeight),
+
+            // 分隔线贴标题条底部
+            titleDivider.leadingAnchor.constraint(equalTo: titleBar.leadingAnchor),
+            titleDivider.trailingAnchor.constraint(equalTo: titleBar.trailingAnchor),
+            titleDivider.bottomAnchor.constraint(equalTo: titleBar.bottomAnchor),
+            titleDivider.heightAnchor.constraint(equalToConstant: 1),
+
+            // 整行点击区域铺满标题条
+            titleClickButton.topAnchor.constraint(equalTo: titleBar.topAnchor),
+            titleClickButton.leadingAnchor.constraint(equalTo: titleBar.leadingAnchor),
+            titleClickButton.trailingAnchor.constraint(equalTo: titleBar.trailingAnchor),
+            titleClickButton.bottomAnchor.constraint(equalTo: titleBar.bottomAnchor),
+
+            // 标题行内容
+            titleStack.topAnchor.constraint(equalTo: titleBar.topAnchor),
+            titleStack.leadingAnchor.constraint(equalTo: titleBar.leadingAnchor, constant: 8),
+            titleStack.trailingAnchor.constraint(equalTo: titleBar.trailingAnchor, constant: -8),
+            titleStack.bottomAnchor.constraint(equalTo: titleBar.bottomAnchor),
+
+            // 内容区：标题条下方铺满剩余高度
+            contentContainer.topAnchor.constraint(equalTo: titleBar.bottomAnchor),
+            contentContainer.leadingAnchor.constraint(equalTo: controlView.leadingAnchor),
+            contentContainer.trailingAnchor.constraint(equalTo: controlView.trailingAnchor),
+            contentContainer.bottomAnchor.constraint(equalTo: controlView.bottomAnchor),
+
+            // 两行控件
+            rows.leadingAnchor.constraint(equalTo: contentContainer.leadingAnchor, constant: 8),
+            rows.trailingAnchor.constraint(lessThanOrEqualTo: contentContainer.trailingAnchor, constant: -8),
+            rows.topAnchor.constraint(greaterThanOrEqualTo: contentContainer.topAnchor, constant: 2),
+            rows.bottomAnchor.constraint(lessThanOrEqualTo: contentContainer.bottomAnchor, constant: -2),
+            rows.centerYAnchor.constraint(equalTo: contentContainer.centerYAnchor),
         ])
 
+        // 应用初始折叠状态（无动画）
+        panelContentContainer.isHidden = isPanelCollapsed
+        updateDisclosureIndicator()
+
         print("✅ setupControlView() 完成")
+    }
+
+    /// 创建折叠/展开指示按钮（macOS 11+ 使用 SF Symbols，低版本回退字符）
+    private func makeDisclosureButton() -> NSButton {
+        let button: NSButton
+        if #available(macOS 11.0, *) {
+            disclosureDownImage = NSImage(systemSymbolName: "chevron.down", accessibilityDescription: "展开控制面板")
+            disclosureRightImage = NSImage(systemSymbolName: "chevron.right", accessibilityDescription: "折叠控制面板")
+            if let downImage = disclosureDownImage {
+                button = NSButton(image: downImage, target: self, action: #selector(toggleControlPanel))
+                button.contentTintColor = NSColor.labelColor
+            } else {
+                button = NSButton(title: "▼", target: self, action: #selector(toggleControlPanel))
+            }
+        } else {
+            button = NSButton(title: "▼", target: self, action: #selector(toggleControlPanel))
+        }
+        button.isBordered = false
+        button.font = NSFont.systemFont(ofSize: 10, weight: .semibold)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.setAccessibilityLabel("折叠或展开控制面板")
+        return button
+    }
+
+    /// 根据当前折叠状态更新箭头图标/字符
+    private func updateDisclosureIndicator() {
+        if #available(macOS 11.0, *), disclosureDownImage != nil {
+            disclosureButton.image = isPanelCollapsed ? disclosureRightImage : disclosureDownImage
+        } else {
+            disclosureButton.title = isPanelCollapsed ? "▶" : "▼"
+        }
+    }
+
+    /// 折叠/展开控制面板：切换高度约束并做平滑动画，状态持久化到配置文件
+    @objc private func toggleControlPanel() {
+        isPanelCollapsed.toggle()
+        AppConfig.shared.controlPanelCollapsed = isPanelCollapsed
+        AppConfig.shared.saveConfigToFile()
+        updateDisclosureIndicator()
+
+        if isPanelCollapsed {
+            // 折叠：内容淡出 + 高度收缩到标题条，动画结束后隐藏内容
+            NSAnimationContext.runAnimationGroup({ context in
+                context.duration = 0.2
+                context.allowsImplicitAnimation = true
+                self.panelContentContainer.animator().alphaValue = 0
+                self.controlViewHeightConstraint.animator().constant = self.panelTitleBarHeight
+                self.controlView.layoutSubtreeIfNeeded()
+            }, completionHandler: {
+                self.panelContentContainer.isHidden = true
+                self.panelContentContainer.alphaValue = 1
+            })
+        } else {
+            // 展开：先显示内容，再淡入 + 高度恢复
+            panelContentContainer.isHidden = false
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.2
+                context.allowsImplicitAnimation = true
+                self.panelContentContainer.animator().alphaValue = 1
+                self.controlViewHeightConstraint.animator().constant = self.panelExpandedHeight
+                self.controlView.layoutSubtreeIfNeeded()
+            }
+        }
     }
 
     private func createAllViews() {
@@ -599,5 +782,36 @@ class MainWindowController: NSWindowController, DataReaderServiceDelegate, NSSpl
 extension MainWindowController: NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         // 不停止监控，允许后台继续运行
+    }
+}
+
+// MARK: - 点击穿透辅助视图
+
+/// 自身不响应鼠标点击的容器：空白区域的点击会穿透到下层视图，
+/// 子视图（按钮、复选框等）仍可正常交互。
+/// 用于控制面板标题条的弹性间距，使整条标题条空白处均可点击折叠。
+private class ClickThroughView: NSView {
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard !isHidden, alphaValue > 0.01, bounds.contains(point) else { return nil }
+        for subview in subviews.reversed() {
+            if let hit = subview.hitTest(convert(point, to: subview)) {
+                return hit
+            }
+        }
+        return nil
+    }
+}
+
+/// 点击穿透版 NSStackView：栈本身及其间距区域不拦截点击，
+/// 仅栈内实际控件响应鼠标事件。
+private class ClickThroughStackView: NSStackView {
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard !isHidden, alphaValue > 0.01, bounds.contains(point) else { return nil }
+        for subview in subviews.reversed() {
+            if let hit = subview.hitTest(convert(point, to: subview)) {
+                return hit
+            }
+        }
+        return nil
     }
 }
